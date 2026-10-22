@@ -6,6 +6,7 @@ import type { Tables, TablesInsert } from "@/lib/supabase/database.types";
 import type { TaskFormValues } from "@/schemas/task";
 import type { Session } from "@/server/auth";
 import { DataError, toDataError } from "@/server/errors";
+import { getFocusByTask } from "@/server/services/sessions";
 
 const SUBJECT_NOT_FOUND = "La materia seleccionada no existe.";
 
@@ -46,6 +47,13 @@ export function taskValuesToRow(
   };
 }
 
+/** Añade el tiempo real dedicado a cada tarea (vista task_focus_totals). */
+async function withFocus(session: Session, tasks: Task[]): Promise<Task[]> {
+  if (tasks.length === 0) return tasks;
+  const focus = await getFocusByTask(session);
+  return tasks.map((task) => ({ ...task, focusSeconds: focus.get(task.id) ?? 0 }));
+}
+
 export type TaskListFilter = {
   view: "open" | "completed" | "all";
   subjectId?: string;
@@ -62,7 +70,7 @@ export async function listTasks(session: Session, filter: TaskListFilter): Promi
       : query.order("due_at", { ascending: true, nullsFirst: false });
   const { data, error } = await query;
   if (error) throw toDataError(error);
-  return data.map(toTask);
+  return withFocus(session, data.map(toTask));
 }
 
 /**
@@ -79,7 +87,7 @@ export async function listDashboardTasks(session: Session, sinceIso: string): Pr
     )
     .order("due_at", { ascending: true, nullsFirst: false });
   if (error) throw toDataError(error);
-  return data.map(toTask);
+  return withFocus(session, data.map(toTask));
 }
 
 /** Tareas no canceladas con fecha límite en [startIso, endIso), para el calendario. */
@@ -96,7 +104,7 @@ export async function listTasksDueInRange(
     .lt("due_at", endIso)
     .order("due_at");
   if (error) throw toDataError(error);
-  return data.map(toTask);
+  return withFocus(session, data.map(toTask));
 }
 
 export async function createTask(

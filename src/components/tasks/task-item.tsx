@@ -1,6 +1,6 @@
 "use client";
 
-import { EllipsisIcon, PencilIcon, Trash2Icon } from "lucide-react";
+import { EllipsisIcon, PencilIcon, TimerIcon, Trash2Icon } from "lucide-react";
 import { useOptimistic, useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -18,10 +18,21 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatMinutes } from "@/domain/datetime";
+import { formatFocus } from "@/domain/sessions";
 import { PRIORITY_LABELS } from "@/domain/labels";
 import type { Task } from "@/domain/types";
 import { cn } from "@/lib/utils";
+import { startTaskSessionAction } from "@/server/actions/sessions";
 import { deleteTaskAction, setTaskCompletedAction } from "@/server/actions/tasks";
+
+/** "35 min de 1 h 30 min", "35 min dedicados" o "1 h 30 min estimados". */
+function timeSummary(task: Task): string | null {
+  const focus = task.focusSeconds ?? 0;
+  if (focus > 0 && task.estimatedMinutes) return `${formatFocus(focus)} de ${formatMinutes(task.estimatedMinutes)}`;
+  if (focus > 0) return `${formatFocus(focus)} dedicados`;
+  if (task.estimatedMinutes) return `${formatMinutes(task.estimatedMinutes)} estimados`;
+  return null;
+}
 
 export function TaskItem({
   task,
@@ -66,6 +77,14 @@ export function TaskItem({
     });
 
   const urgent = task.priority === "urgent" || task.priority === "high";
+  const time = timeSummary(task);
+
+  const studyNow = () =>
+    startTransition(async () => {
+      const result = await startTaskSessionAction(task.id);
+      if (result.ok) toast.success("Sesión de 25 min iniciada");
+      else toast.error(result.error);
+    });
 
   return (
     <li
@@ -101,11 +120,7 @@ export function TaskItem({
               <span className="truncate">{subject.name}</span>
             </span>
           ) : null}
-          {task.estimatedMinutes ? (
-            <span className="tabular text-xs text-muted-foreground">
-              {formatMinutes(task.estimatedMinutes)}
-            </span>
-          ) : null}
+          {time ? <span className="tabular text-xs text-muted-foreground">{time}</span> : null}
           {urgent && !optimisticDone ? (
             <span className="text-xs font-medium text-foreground">
               Prioridad {PRIORITY_LABELS[task.priority].toLowerCase()}
@@ -120,7 +135,12 @@ export function TaskItem({
             <EllipsisIcon aria-hidden />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-40">
+        <DropdownMenuContent align="end" className="w-52">
+          {!optimisticDone ? (
+            <DropdownMenuItem onSelect={studyNow}>
+              <TimerIcon aria-hidden /> Estudiar ahora (25 min)
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuItem onSelect={() => setEditing(true)}>
             <PencilIcon aria-hidden /> Editar
           </DropdownMenuItem>

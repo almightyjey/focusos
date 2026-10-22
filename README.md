@@ -12,7 +12,7 @@ Primer usuario: estudiante de Ingeniería de Software en INTEC. La arquitectura 
 | 3 | Autenticación y políticas RLS | Hecho |
 | 4 | Materias y tareas (CRUD) | Hecho |
 | 5 | Dashboard y calendario | Hecho: vistas semanal y mensual, eventos con repetición semanal |
-| 6 | Sesiones de estudio y temporizador | Pendiente (tabla lista) |
+| 6 | Sesiones de estudio y temporizador | Hecho: temporizador con pausas, registro manual, estimado frente a real |
 | 7 | Calificaciones y progreso | Pendiente (tabla lista) |
 | 8 | Motor de planificación determinista | Pendiente |
 | 9 | Extensiones para Notion e IA | Pendiente (tabla `integrations` lista) |
@@ -108,15 +108,29 @@ La base guarda instantes (`timestamptz`, UTC). Cada perfil tiene una zona IANA (
 - **Limitaciones actuales:** editar o borrar afecta a toda la serie (todavía no hay excepciones por ocurrencia) y los eventos con hora no pueden cruzar la medianoche.
 - **Dashboard:** "Horario de hoy" lista los eventos del día, y los exámenes de los próximos 7 días aparecen junto a las entregas.
 
+### Estudio (temporizador)
+
+`/study` permite empezar una sesión sobre una tarea, sobre una materia en general o sin nada concreto. Se elige una duración objetivo (25, 50 o 90 min, otra o sin límite).
+
+- **El tiempo lo mide la base de datos.** Empezar, pausar, reanudar, terminar y descartar son funciones de Postgres (`start_study_session`, `pause_study_session`, etc.) que usan `now()`. Son `SECURITY INVOKER`, así que RLS sigue aplicando. El navegador solo dibuja el reloj a partir de esas marcas de tiempo: la sesión sobrevive a recargas, al cierre de la pestaña y al uso de varias pestañas. Solo puede haber una sesión activa por usuario.
+- **Barra global:** mientras hay una sesión en curso aparece en todas las páginas y el título de la pestaña muestra el reloj. Al llegar a cero sigue contando como tiempo extra.
+- **Terminar:** se pueden bajar los minutos registrados (si olvidaste parar el temporizador), nunca subirlos por encima de lo medido; la base lo impide. Opcionalmente marca la tarea como completada.
+- **Registro manual:** "Registrar tiempo" guarda lo estudiado sin temporizador. La base rechaza tiempo en el futuro y enfoque mayor que la duración.
+- **Estimado frente a real:** la vista `task_focus_totals` (con `security_invoker`) suma el enfoque por tarea. Cada tarea muestra "35 min de 1 h 30 min". El resumen usa la mediana de real/estimado y solo afirma una tendencia con al menos 3 tareas completadas comparables.
+- **Planificado frente a completado:** lo planificado son los bloques de estudio del calendario de la semana. El dashboard y `/study` comparan con el enfoque completado.
+- Las sesiones descartadas se guardan como `cancelled` y no cuentan en ningún total.
+
 ### Materias de demostración
 
 En **Materias** (estado vacío) está el botón "Añadir mis 8 materias de INTEC". Solo crea nombre, color y prioridad, con Cálculo Diferencial y los dos cursos de Programación en prioridad alta. No inventa códigos, créditos, horarios ni evaluaciones. La lista se edita en `src/config/demo-subjects.ts`. La operación no duplica materias: puedes pulsarlo varias veces y solo añade las que falten.
 
 ## Pruebas
 
-- **Unitarias** (`src/**/*.test.ts`): fechas y zonas horarias (incluido el horario de verano), agrupación de tareas, progreso semanal, rejilla del calendario, repetición semanal, solapes y esquemas.
+- **Unitarias** (`src/**/*.test.ts`): fechas y zonas horarias (incluido el horario de verano), agrupación de tareas, progreso semanal, rejilla del calendario, repetición semanal, solapes, tiempo de enfoque con pausas, resúmenes de estudio, precisión de estimaciones y esquemas.
 - **RLS** (`tests/integration/rls.test.ts`): con la clave publicable, como el navegador, comprueba que el usuario B no puede leer, modificar, borrar ni referenciar datos de A (materias, tareas y eventos), que `anon` no ve nada y que una serie recurrente exige una zona horaria válida.
 - **E2E** (`e2e/first-delivery.spec.ts`): iniciar sesión, crear materia, crear tarea con fecha límite, verla en "Qué hacer hoy", completarla, recargar y confirmar que persiste. Después borra lo creado desde la interfaz.
+- **Temporizador** (`tests/integration/sessions.test.ts`): funciones RPC contra la base real. Cubre una sola sesión activa, que otro usuario no pueda ver ni controlar la sesión, pausar y reanudar, no registrar más de lo medido, totales por tarea solo para su dueño, rechazo de tiempo futuro o inflado, y sin acceso para `anon`.
+- **E2E de estudio** (`e2e/study.spec.ts`): sesión desde una tarea, pausa que sobrevive a recargar, terminar completando la tarea, tiempo real frente a estimado, registro manual, rechazo de tiempo futuro y descarte.
 - **E2E del calendario** (`e2e/calendar.spec.ts`): crear una clase semanal, verla en la semana actual, en la siguiente (con sus dos repeticiones), en el mes y en el dashboard, editar la serie y borrarla con confirmación. También comprueba que la hora de fin sea posterior al inicio.
 - **SQL** (`supabase/tests/rls_check.sql`): la misma verificación de RLS ejecutable en el SQL Editor.
 

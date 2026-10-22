@@ -2,6 +2,7 @@ import { Suspense, type ReactNode } from "react";
 
 import { BottomNav, SidebarNav } from "@/components/layout/nav-links";
 import { UserMenu } from "@/components/layout/user-menu";
+import { ActiveSessionBar } from "@/components/sessions/active-session-bar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Wordmark } from "@/components/wordmark";
@@ -49,6 +50,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Suspense>
           </div>
         </header>
+
+        <div className="sticky top-14 z-20 md:top-0">
+          <Suspense fallback={null}>
+            <ActiveSessionBar />
+          </Suspense>
+        </div>
 
         <main id="contenido" tabIndex={-1} className="flex-1 px-4 pt-6 pb-28 outline-none sm:px-6 md:px-10 md:pt-10 md:pb-12">
           <div className="mx-auto w-full max-w-6xl">{children}</div>

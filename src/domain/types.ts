@@ -56,6 +56,8 @@ export type Task = {
   estimatedMinutes: number | null;
   difficulty: number | null;
   completedAt: string | null;
+  /** Segundos de enfoque registrados en sesiones de estudio, si se consultaron. */
+  focusSeconds?: number;
 };
 
 export type ScheduleEvent = {

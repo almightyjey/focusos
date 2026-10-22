@@ -1,3 +1,4 @@
+import { TimerIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -9,6 +10,7 @@ import { UpcomingDeadlines } from "@/components/dashboard/upcoming-deadlines";
 import { WeekProgress } from "@/components/dashboard/week-progress";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
+import { FocusSummary } from "@/components/sessions/focus-summary";
 import { NewTaskButton } from "@/components/tasks/new-task-button";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,6 +21,7 @@ import { buildTodayAgenda, summarizeSubjects, weeklyProgress } from "@/domain/ta
 import { requireSession } from "@/server/auth";
 import { listEventsInRange } from "@/server/services/events";
 import { getProfile } from "@/server/services/profiles";
+import { loadWeekStudyStats } from "@/server/services/study-stats";
 import { listSubjects } from "@/server/services/subjects";
 import { listDashboardTasks } from "@/server/services/tasks";
 
@@ -44,10 +47,11 @@ async function DashboardContent() {
   const eventsFrom = zonedInputToUtc(todayKey, "00:00", timeZone).toISOString();
   const eventsTo = zonedInputToUtc(addDaysToKey(todayKey, 8), "00:00", timeZone).toISOString();
 
-  const [subjects, tasks, events] = await Promise.all([
+  const [subjects, tasks, events, study] = await Promise.all([
     listSubjects(session),
     listDashboardTasks(session, weekStart.toISOString()),
     listEventsInRange(session, eventsFrom, eventsTo),
+    loadWeekStudyStats(session, profile, now),
   ]);
   const occurrences = expandOccurrences(events, eventsFrom, eventsTo, timeZone);
 
@@ -65,7 +69,16 @@ async function DashboardContent() {
             {longDate.charAt(0).toUpperCase() + longDate.slice(1)}
           </time>
         }
-        actions={<NewTaskButton subjects={subjectOptions} timeZone={timeZone} nowIso={nowIso} />}
+        actions={
+          <>
+            <Button asChild variant="outline">
+              <Link href="/study">
+                <TimerIcon aria-hidden /> Empezar a estudiar
+              </Link>
+            </Button>
+            <NewTaskButton subjects={subjectOptions} timeZone={timeZone} nowIso={nowIso} />
+          </>
+        }
       />
 
       {isNewAccount ? (
@@ -95,6 +108,12 @@ async function DashboardContent() {
             subjects={subjectOptions}
             nowIso={nowIso}
             timeZone={timeZone}
+            calendarHref={`/calendar?view=week&date=${todayKey}`}
+          />
+          <FocusSummary
+            summary={study.summary}
+            plannedMinutes={study.plannedMinutes}
+            subjects={subjectOptions}
             calendarHref={`/calendar?view=week&date=${todayKey}`}
           />
           <WeekProgress progress={weeklyProgress(tasks, now, timeZone, profile.weekStartsOn)} />

@@ -205,6 +205,8 @@ export type Database = {
           focus_seconds: number | null
           id: string
           notes: string | null
+          paused_at: string | null
+          paused_seconds: number
           planned_minutes: number | null
           planned_start_at: string | null
           started_at: string | null
@@ -220,6 +222,8 @@ export type Database = {
           focus_seconds?: number | null
           id?: string
           notes?: string | null
+          paused_at?: string | null
+          paused_seconds?: number
           planned_minutes?: number | null
           planned_start_at?: string | null
           started_at?: string | null
@@ -235,6 +239,8 @@ export type Database = {
           focus_seconds?: number | null
           id?: string
           notes?: string | null
+          paused_at?: string | null
+          paused_seconds?: number
           planned_minutes?: number | null
           planned_start_at?: string | null
           started_at?: string | null
@@ -370,10 +376,151 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      task_focus_totals: {
+        Row: {
+          focus_seconds: number | null
+          session_count: number | null
+          task_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      cancel_study_session: {
+        Args: { p_id: string }
+        Returns: {
+          created_at: string
+          ended_at: string | null
+          focus_seconds: number | null
+          id: string
+          notes: string | null
+          paused_at: string | null
+          paused_seconds: number
+          planned_minutes: number | null
+          planned_start_at: string | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["study_session_status"]
+          subject_id: string | null
+          task_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "study_sessions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      finish_study_session: {
+        Args: { p_focus_seconds?: number; p_id: string; p_notes?: string }
+        Returns: {
+          created_at: string
+          ended_at: string | null
+          focus_seconds: number | null
+          id: string
+          notes: string | null
+          paused_at: string | null
+          paused_seconds: number
+          planned_minutes: number | null
+          planned_start_at: string | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["study_session_status"]
+          subject_id: string | null
+          task_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "study_sessions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       is_valid_timezone: { Args: { tz: string }; Returns: boolean }
+      pause_study_session: {
+        Args: { p_id: string }
+        Returns: {
+          created_at: string
+          ended_at: string | null
+          focus_seconds: number | null
+          id: string
+          notes: string | null
+          paused_at: string | null
+          paused_seconds: number
+          planned_minutes: number | null
+          planned_start_at: string | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["study_session_status"]
+          subject_id: string | null
+          task_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "study_sessions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      resume_study_session: {
+        Args: { p_id: string }
+        Returns: {
+          created_at: string
+          ended_at: string | null
+          focus_seconds: number | null
+          id: string
+          notes: string | null
+          paused_at: string | null
+          paused_seconds: number
+          planned_minutes: number | null
+          planned_start_at: string | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["study_session_status"]
+          subject_id: string | null
+          task_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "study_sessions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      start_study_session: {
+        Args: {
+          p_planned_minutes?: number
+          p_subject_id?: string
+          p_task_id?: string
+        }
+        Returns: {
+          created_at: string
+          ended_at: string | null
+          focus_seconds: number | null
+          id: string
+          notes: string | null
+          paused_at: string | null
+          paused_seconds: number
+          planned_minutes: number | null
+          planned_start_at: string | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["study_session_status"]
+          subject_id: string | null
+          task_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "study_sessions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       grade_category:

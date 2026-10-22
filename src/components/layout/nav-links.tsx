@@ -44,7 +44,7 @@ export function BottomNav() {
       className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
     >
       <ul className="mx-auto grid max-w-lg grid-cols-5">
-        {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+        {NAV_ITEMS.filter((item) => item.mobile).map(({ href, label, icon: Icon }) => {
           const active = isActive(href);
           return (
             <li key={href}>
