@@ -1,0 +1,184 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * FocusOS · sistema visual "cuaderno de ingeniería"
+ * Papel frío, tinta azul y un resaltador amarillo reservado para lo que vence
+ * hoy. Las secciones se separan con líneas, no con sombras.
+ */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-plex-sans);
+  --font-heading: var(--font-plex-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-highlight: var(--highlight);
+  --color-highlight-foreground: var(--highlight-foreground);
+  --color-rule: var(--rule);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  /* Papel y tinta */
+  --background: #f5f6f8;
+  --foreground: #161b2e;
+  --card: #ffffff;
+  --card-foreground: #161b2e;
+  --popover: #ffffff;
+  --popover-foreground: #161b2e;
+  /* Tinta azul */
+  --primary: #2b4acb;
+  --primary-foreground: #ffffff;
+  --secondary: #eceef3;
+  --secondary-foreground: #161b2e;
+  --muted: #eceef3;
+  --muted-foreground: #565e72;
+  --accent: #e8ecfb;
+  --accent-foreground: #1e3399;
+  --destructive: #c42a2a;
+  --border: #dfe2e9;
+  --rule: #e7e9ee;
+  --input: #d3d7e0;
+  --ring: #2b4acb;
+  /* Resaltador: solo para lo que vence hoy */
+  --highlight: #ffe36e;
+  --highlight-foreground: #3b2f00;
+  --chart-1: #2b4acb;
+  --chart-2: #1f7a99;
+  --chart-3: #2f8f6b;
+  --chart-4: #8a7a2e;
+  --chart-5: #8b4fb3;
+  --radius: 0.625rem;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #161b2e;
+  --sidebar-primary: #2b4acb;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e8ecfb;
+  --sidebar-accent-foreground: #1e3399;
+  --sidebar-border: #dfe2e9;
+  --sidebar-ring: #2b4acb;
+}
+
+.dark {
+  --background: #0e1220;
+  --foreground: #e6e9f1;
+  --card: #151a2b;
+  --card-foreground: #e6e9f1;
+  --popover: #1a2033;
+  --popover-foreground: #e6e9f1;
+  --primary: #8ea2ff;
+  --primary-foreground: #0e1220;
+  --secondary: #1e2436;
+  --secondary-foreground: #e6e9f1;
+  --muted: #1e2436;
+  --muted-foreground: #9aa2b5;
+  --accent: #1f2847;
+  --accent-foreground: #ccd5ff;
+  --destructive: #ff7b72;
+  --border: #262d42;
+  --rule: #20263a;
+  --input: #2f3750;
+  --ring: #8ea2ff;
+  --highlight: #e5c449;
+  --highlight-foreground: #1f1a00;
+  --chart-1: #8ea2ff;
+  --chart-2: #5bb6d4;
+  --chart-3: #5cc49a;
+  --chart-4: #c9b55a;
+  --chart-5: #c08ae0;
+  --sidebar: #121729;
+  --sidebar-foreground: #e6e9f1;
+  --sidebar-primary: #8ea2ff;
+  --sidebar-primary-foreground: #0e1220;
+  --sidebar-accent: #1f2847;
+  --sidebar-accent-foreground: #ccd5ff;
+  --sidebar-border: #262d42;
+  --sidebar-ring: #8ea2ff;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "kern" 1;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+  /* Cifras alineadas en fechas, horas y contadores */
+  time,
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* Marca de resaltador: trazo ligeramente irregular, como un rotulador. */
+  .highlighter {
+    background-color: var(--highlight);
+    color: var(--highlight-foreground);
+    border-radius: 0.2em 0.35em 0.25em 0.4em;
+    padding: 0.05em 0.35em;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+}
