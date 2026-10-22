@@ -82,6 +82,23 @@ export async function listDashboardTasks(session: Session, sinceIso: string): Pr
   return data.map(toTask);
 }
 
+/** Tareas no canceladas con fecha límite en [startIso, endIso), para el calendario. */
+export async function listTasksDueInRange(
+  session: Session,
+  startIso: string,
+  endIso: string,
+): Promise<Task[]> {
+  const { data, error } = await session.supabase
+    .from("tasks")
+    .select("*")
+    .neq("status", "cancelled")
+    .gte("due_at", startIso)
+    .lt("due_at", endIso)
+    .order("due_at");
+  if (error) throw toDataError(error);
+  return data.map(toTask);
+}
+
 export async function createTask(
   session: Session,
   values: TaskFormValues,

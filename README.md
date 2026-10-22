@@ -11,7 +11,7 @@ Primer usuario: estudiante de Ingeniería de Software en INTEC. La arquitectura 
 | 2 | Esquema de datos y migraciones (7 tablas) | Hecho |
 | 3 | Autenticación y políticas RLS | Hecho |
 | 4 | Materias y tareas (CRUD) | Hecho |
-| 5 | Dashboard y calendario | Dashboard mínimo hecho; calendario pendiente |
+| 5 | Dashboard y calendario | Hecho: vistas semanal y mensual, eventos con repetición semanal |
 | 6 | Sesiones de estudio y temporizador | Pendiente (tabla lista) |
 | 7 | Calificaciones y progreso | Pendiente (tabla lista) |
 | 8 | Motor de planificación determinista | Pendiente |
@@ -98,15 +98,26 @@ Reglas que sigue el código:
 
 La base guarda instantes (`timestamptz`, UTC). Cada perfil tiene una zona IANA (por defecto `America/Santo_Domingo`, detectada del navegador al registrarse). La conversión entre la hora local y UTC ocurre solo en `src/domain/datetime.ts`. Una entrega sin hora vence a las 23:59 locales.
 
+### Calendario
+
+`/calendar?view=week|month&date=YYYY-MM-DD` muestra clases, laboratorios, exámenes y bloques de estudio (`schedule_events`) junto con las entregas de tareas.
+
+- **Semana:** en escritorio es una rejilla horaria (de 7:00 a 21:00, se amplía si algo cae fuera) con los eventos solapados lado a lado. En móvil pasa a ser una agenda por día. Los eventos de todo el día y las entregas van en la fila superior.
+- **Mes:** las celdas muestran hasta 3 elementos (en móvil, marcas de color) y debajo va la agenda del día elegido.
+- **Repetición:** solo semanal, con días de la semana y fecha de fin opcional (máximo un año). Se guarda como RRULE (`FREQ=WEEKLY;BYDAY=MO,WE;UNTIL=YYYYMMDD`) junto con la zona horaria del evento, y se expande en hora local, así que una clase de las 10:00 sigue a las 10:00 aunque cambie el horario de verano. Una regla que FocusOS no entienda se muestra como evento único y no se reinterpreta.
+- **Limitaciones actuales:** editar o borrar afecta a toda la serie (todavía no hay excepciones por ocurrencia) y los eventos con hora no pueden cruzar la medianoche.
+- **Dashboard:** "Horario de hoy" lista los eventos del día, y los exámenes de los próximos 7 días aparecen junto a las entregas.
+
 ### Materias de demostración
 
 En **Materias** (estado vacío) está el botón "Añadir mis 8 materias de INTEC". Solo crea nombre, color y prioridad, con Cálculo Diferencial y los dos cursos de Programación en prioridad alta. No inventa códigos, créditos, horarios ni evaluaciones. La lista se edita en `src/config/demo-subjects.ts`. La operación no duplica materias: puedes pulsarlo varias veces y solo añade las que falten.
 
 ## Pruebas
 
-- **Unitarias** (`src/**/*.test.ts`): fechas y zonas horarias (incluido el horario de verano), agrupación de tareas, progreso semanal y esquemas.
-- **RLS** (`tests/integration/rls.test.ts`): con la clave publicable, como el navegador, comprueba que el usuario B no puede leer, modificar, borrar ni referenciar datos de A, y que `anon` no ve nada.
+- **Unitarias** (`src/**/*.test.ts`): fechas y zonas horarias (incluido el horario de verano), agrupación de tareas, progreso semanal, rejilla del calendario, repetición semanal, solapes y esquemas.
+- **RLS** (`tests/integration/rls.test.ts`): con la clave publicable, como el navegador, comprueba que el usuario B no puede leer, modificar, borrar ni referenciar datos de A (materias, tareas y eventos), que `anon` no ve nada y que una serie recurrente exige una zona horaria válida.
 - **E2E** (`e2e/first-delivery.spec.ts`): iniciar sesión, crear materia, crear tarea con fecha límite, verla en "Qué hacer hoy", completarla, recargar y confirmar que persiste. Después borra lo creado desde la interfaz.
+- **E2E del calendario** (`e2e/calendar.spec.ts`): crear una clase semanal, verla en la semana actual, en la siguiente (con sus dos repeticiones), en el mes y en el dashboard, editar la serie y borrarla con confirmación. También comprueba que la hora de fin sea posterior al inicio.
 - **SQL** (`supabase/tests/rls_check.sql`): la misma verificación de RLS ejecutable en el SQL Editor.
 
 Las pruebas de RLS y E2E necesitan dos usuarios confirmados del proyecto de desarrollo en `.env.test.local`. Sin ellos, se omiten.

@@ -43,7 +43,7 @@ export function BottomNav() {
       aria-label="Principal"
       className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
     >
-      <ul className="mx-auto grid max-w-md grid-cols-4">
+      <ul className="mx-auto grid max-w-lg grid-cols-5">
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
           const active = isActive(href);
           return (
@@ -52,7 +52,7 @@ export function BottomNav() {
                 href={href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex min-h-14 flex-col items-center justify-center gap-1 text-[0.7rem] font-medium text-muted-foreground outline-none focus-visible:bg-muted",
+                  "flex min-h-14 flex-col items-center justify-center gap-1 text-[0.68rem] font-medium text-muted-foreground outline-none focus-visible:bg-muted",
                   active && "text-primary",
                 )}
               >

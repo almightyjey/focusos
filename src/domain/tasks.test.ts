@@ -6,9 +6,9 @@ import {
   dueBucket,
   groupOpenTasksByDue,
   summarizeSubjects,
-  upcomingDeadlines,
   weeklyProgress,
 } from "@/domain/tasks";
+import { upcomingAgenda } from "@/domain/agenda";
 import type { Subject, Task } from "@/domain/types";
 
 const TZ = "America/Santo_Domingo";
@@ -115,20 +115,22 @@ describe("buildTodayAgenda", () => {
   });
 });
 
-describe("upcomingDeadlines", () => {
+describe("upcomingAgenda con tareas", () => {
   it("agrupa los próximos 7 días por día local, sin incluir hoy", () => {
-    const days = upcomingDeadlines(
+    const days = upcomingAgenda(
       [
         task({ dueAt: "2026-10-23T03:59:00Z" }), // hoy 23:59
         task({ dueAt: "2026-10-23T14:00:00Z" }), // mañana
         task({ dueAt: "2026-10-24T02:00:00Z" }), // mañana 22:00 local
         task({ dueAt: "2026-10-29T14:00:00Z" }), // +7
         task({ dueAt: "2026-10-30T14:00:00Z" }), // +8, fuera
+        task({ dueAt: "2026-10-24T14:00:00Z", status: "completed", completedAt: "2026-10-22T12:00:00Z" }),
       ],
+      [],
       NOW,
       TZ,
     );
-    expect(days.map((d) => [d.dayKey, d.tasks.length])).toEqual([
+    expect(days.map((d) => [d.dayKey, d.items.length])).toEqual([
       ["2026-10-23", 2],
       ["2026-10-29", 1],
     ]);

@@ -1,4 +1,6 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+
+import { hasTestUser, signIn } from "./support/auth";
 
 /**
  * Criterio de éxito de la primera entrega:
@@ -6,20 +8,7 @@ import { expect, test, type Page } from "@playwright/test";
  * el dashboard → completarla → recargar y comprobar que persiste.
  */
 
-const email = process.env.E2E_USER_A_EMAIL;
-const password = process.env.E2E_USER_A_PASSWORD;
-
-test.skip(!email || !password, "Faltan E2E_USER_A_EMAIL / E2E_USER_A_PASSWORD en .env.test.local");
-
-async function signIn(page: Page) {
-  await page.goto("/dashboard");
-  await expect(page).toHaveURL(/\/login\?next=%2Fdashboard/);
-  await page.getByLabel("Correo").fill(email!);
-  await page.getByLabel("Contraseña").fill(password!);
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/dashboard$/);
-  await expect(page.getByRole("heading", { level: 1, name: "Hoy" })).toBeVisible();
-}
+test.skip(!hasTestUser, "Faltan E2E_USER_A_EMAIL / E2E_USER_A_PASSWORD en .env.test.local");
 
 test("flujo completo de la primera entrega", async ({ page }) => {
   const stamp = Date.now();
@@ -27,6 +16,7 @@ test("flujo completo de la primera entrega", async ({ page }) => {
   const taskTitle = `E2E Tarea ${stamp}`;
 
   await signIn(page);
+  await expect(page.getByRole("heading", { level: 1, name: "Hoy" })).toBeVisible();
 
   // 1. Crear materia
   await page.goto("/subjects");
@@ -92,7 +82,7 @@ test("flujo completo de la primera entrega", async ({ page }) => {
 });
 
 test("las páginas privadas exigen sesión", async ({ page }) => {
-  for (const path of ["/dashboard", "/tasks", "/subjects", "/settings"]) {
+  for (const path of ["/dashboard", "/tasks", "/calendar", "/subjects", "/settings"]) {
     await page.goto(path);
     await expect(page).toHaveURL(new RegExp(`/login\\?next=${encodeURIComponent(path)}`));
   }

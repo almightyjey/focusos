@@ -110,31 +110,6 @@ export function buildTodayAgenda(tasks: Task[], now: Date, timeZone: string): To
   };
 }
 
-export type DayDeadlines = { dayKey: string; tasks: Task[] };
-
-/** Tareas abiertas que vencen después de hoy y dentro de `days` días, agrupadas por día. */
-export function upcomingDeadlines(
-  tasks: Task[],
-  now: Date,
-  timeZone: string,
-  days = 7,
-): DayDeadlines[] {
-  const todayKey = dayKey(now, timeZone);
-  const lastKey = addDaysToKey(todayKey, days);
-  const byDay = new Map<string, Task[]>();
-
-  for (const task of tasks) {
-    if (!isOpenTask(task) || !task.dueAt) continue;
-    const key = dayKey(task.dueAt, timeZone);
-    if (key <= todayKey || key > lastKey) continue;
-    byDay.set(key, [...(byDay.get(key) ?? []), task]);
-  }
-
-  return [...byDay.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([key, dayTasks]) => ({ dayKey: key, tasks: dayTasks.sort(compareOpenTasks) }));
-}
-
 export type WeeklyProgress = {
   weekStartKey: string;
   weekEndKey: string;

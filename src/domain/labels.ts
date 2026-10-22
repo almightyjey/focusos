@@ -1,4 +1,4 @@
-import type { PriorityLevel, TaskKind, TaskStatus } from "@/domain/types";
+import type { EventKind, PriorityLevel, TaskKind, TaskStatus } from "@/domain/types";
 
 export const PRIORITY_LABELS: Record<PriorityLevel, string> = {
   low: "Baja",
@@ -31,6 +31,19 @@ export const TASK_KIND_LABELS: Record<TaskKind, string> = {
   lab: "Laboratorio",
   other: "Otra",
 };
+
+export const EVENT_KIND_LABELS: Record<EventKind, string> = {
+  class: "Clase",
+  lab: "Laboratorio",
+  exam: "Examen",
+  study_block: "Bloque de estudio",
+  deadline: "Fecha límite",
+  personal: "Personal",
+  other: "Otro",
+};
+
+/** Iniciales de los días, de domingo a sábado. */
+export const WEEKDAY_SHORT_LABELS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"] as const;
 
 export const WEEKDAY_LABELS = [
   "Domingo",

@@ -18,6 +18,17 @@ export const TASK_KINDS = [
 ] as const;
 export type TaskKind = (typeof TASK_KINDS)[number];
 
+export const EVENT_KINDS = [
+  "class",
+  "lab",
+  "exam",
+  "study_block",
+  "deadline",
+  "personal",
+  "other",
+] as const;
+export type EventKind = (typeof EVENT_KINDS)[number];
+
 /** Estados que siguen pendientes de trabajo. */
 export const OPEN_TASK_STATUSES = ["pending", "in_progress"] as const satisfies readonly TaskStatus[];
 
@@ -45,6 +56,23 @@ export type Task = {
   estimatedMinutes: number | null;
   difficulty: number | null;
   completedAt: string | null;
+};
+
+export type ScheduleEvent = {
+  id: string;
+  subjectId: string | null;
+  title: string;
+  kind: EventKind;
+  /** Primera ocurrencia (instantes ISO 8601 en UTC). */
+  startsAt: string;
+  endsAt: string;
+  allDay: boolean;
+  location: string | null;
+  notes: string | null;
+  /** Regla RRULE (subconjunto semanal, ver domain/recurrence.ts) o null. */
+  recurrenceRule: string | null;
+  /** Zona IANA en la que se expande la repetición. */
+  timezone: string | null;
 };
 
 export type Profile = {

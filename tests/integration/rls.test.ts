@@ -37,6 +37,7 @@ describe.skipIf(!configured)("RLS: aislamiento entre usuarios", () => {
   let b: { client: Client; userId: string };
   let subjectId: string;
   let taskId: string;
+  let eventId: string;
   const name = `RLS vitest ${Date.now()}`;
 
   beforeAll(async () => {
@@ -53,10 +54,26 @@ describe.skipIf(!configured)("RLS: aislamiento entre usuarios", () => {
       .single();
     if (task.error) throw task.error;
     taskId = task.data.id;
+
+    const event = await a.client
+      .from("schedule_events")
+      .insert({
+        title: `${name} clase`,
+        subject_id: subjectId,
+        starts_at: "2026-10-26T14:00:00Z",
+        ends_at: "2026-10-26T15:30:00Z",
+        recurrence_rule: "FREQ=WEEKLY;BYDAY=MO",
+        timezone: "America/Santo_Domingo",
+      })
+      .select("id")
+      .single();
+    if (event.error) throw event.error;
+    eventId = event.data.id;
   });
 
   afterAll(async () => {
     if (!a) return;
+    await a.client.from("schedule_events").delete().eq("id", eventId);
     await a.client.from("tasks").delete().eq("id", taskId);
     await a.client.from("subjects").delete().eq("id", subjectId);
   });
@@ -92,6 +109,30 @@ describe.skipIf(!configured)("RLS: aislamiento entre usuarios", () => {
   it("otro usuario no puede enlazar su tarea a una materia ajena", async () => {
     const { error } = await b.client.from("tasks").insert({ title: "enlace ajeno", subject_id: subjectId });
     expect(error?.code).toBe("23503");
+  });
+
+  it("otro usuario no puede leer, cambiar ni enlazar eventos ajenos", async () => {
+    const read = await b.client.from("schedule_events").select("id").eq("id", eventId);
+    expect(read.data).toEqual([]);
+    const update = await b.client.from("schedule_events").update({ title: "intrusión" }).eq("id", eventId).select("id");
+    expect(update.data).toEqual([]);
+    const link = await b.client.from("schedule_events").insert({
+      title: "enlace ajeno",
+      subject_id: subjectId,
+      starts_at: "2026-10-26T14:00:00Z",
+      ends_at: "2026-10-26T15:00:00Z",
+    });
+    expect(link.error?.code).toBe("23503");
+  });
+
+  it("una serie recurrente exige una zona horaria válida", async () => {
+    const base = { title: "serie", starts_at: "2026-10-26T14:00:00Z", ends_at: "2026-10-26T15:00:00Z" };
+    const missing = await a.client.from("schedule_events").insert({ ...base, recurrence_rule: "FREQ=WEEKLY;BYDAY=MO" });
+    expect(missing.error?.code).toBe("23514");
+    const invalid = await a.client
+      .from("schedule_events")
+      .insert({ ...base, recurrence_rule: "FREQ=WEEKLY;BYDAY=MO", timezone: "Mars/Olympus" });
+    expect(invalid.error?.code).toBe("22023");
   });
 
   it("nadie puede marcar una integración como conectada desde el cliente", async () => {
