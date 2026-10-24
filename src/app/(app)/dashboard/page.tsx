@@ -10,6 +10,8 @@ import { UpcomingDeadlines } from "@/components/dashboard/upcoming-deadlines";
 import { WeekProgress } from "@/components/dashboard/week-progress";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
+import { NextStep } from "@/components/planner/next-step";
+import { PlanTimeline } from "@/components/planner/plan-timeline";
 import { FocusSummary } from "@/components/sessions/focus-summary";
 import { NewTaskButton } from "@/components/tasks/new-task-button";
 import { Button } from "@/components/ui/button";
@@ -22,7 +24,9 @@ import { buildTodayAgenda, summarizeSubjects, weeklyProgress } from "@/domain/ta
 import { requireSession } from "@/server/auth";
 import { listEventsInRange } from "@/server/services/events";
 import { listGradeItems } from "@/server/services/grades";
+import { loadPlan } from "@/server/services/planner";
 import { getProfile } from "@/server/services/profiles";
+import { getActiveSession } from "@/server/services/sessions";
 import { loadWeekStudyStats } from "@/server/services/study-stats";
 import { listSubjects } from "@/server/services/subjects";
 import { listDashboardTasks } from "@/server/services/tasks";
@@ -49,13 +53,17 @@ async function DashboardContent() {
   const eventsFrom = zonedInputToUtc(todayKey, "00:00", timeZone).toISOString();
   const eventsTo = zonedInputToUtc(addDaysToKey(todayKey, 8), "00:00", timeZone).toISOString();
 
-  const [subjects, tasks, events, study, gradeItems] = await Promise.all([
+  const [subjects, tasks, events, study, gradeItems, planner, activeSession] = await Promise.all([
     listSubjects(session),
     listDashboardTasks(session, weekStart.toISOString()),
     listEventsInRange(session, eventsFrom, eventsTo),
     loadWeekStudyStats(session, profile, now),
     listGradeItems(session),
+    loadPlan(session, profile, now),
+    getActiveSession(session),
   ]);
+  const subjectLookup = new Map(planner.subjects.map((s) => [s.id, { name: s.name, color: s.color }]));
+  const topRecommendation = planner.plan.ranking[0];
   const gradeSummaries = new Map(
     subjects.map((subject) => [
       subject.id,
@@ -104,14 +112,32 @@ async function DashboardContent() {
       ) : null}
 
       <div className="grid grid-cols-1 gap-12 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-14">
-        <TodayAgenda
-          agenda={agenda}
-          subjects={subjectOptions}
-          nowIso={nowIso}
-          timeZone={timeZone}
-          showEmptyState={!isNewAccount}
-        />
+        <div className="space-y-10">
+          {!isNewAccount ? (
+            <NextStep
+              recommendation={topRecommendation}
+              subject={topRecommendation?.task.subjectId ? subjectLookup.get(topRecommendation.task.subjectId) : undefined}
+              hasActiveSession={activeSession !== null}
+            />
+          ) : null}
+          <TodayAgenda
+            agenda={agenda}
+            subjects={subjectOptions}
+            nowIso={nowIso}
+            timeZone={timeZone}
+            showEmptyState={!isNewAccount}
+          />
+        </div>
         <aside className="space-y-10" aria-label="Resumen">
+          {!isNewAccount ? (
+            <PlanTimeline
+              plan={planner.plan.today}
+              subjects={subjectLookup}
+              timeZone={timeZone}
+              studyWindow={profile.studyWindow}
+              limit={4}
+            />
+          ) : null}
           <TodaySchedule
             occurrences={todaySchedule(occurrences, now, timeZone)}
             subjects={subjectOptions}

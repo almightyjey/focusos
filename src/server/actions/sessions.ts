@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
 import { idSchema } from "@/schemas/common";
 import {
@@ -46,12 +47,19 @@ export async function startSessionAction(input: StartSessionInput): Promise<Acti
   return ok();
 }
 
-export async function startTaskSessionAction(taskId: string): Promise<ActionResult> {
+/** Empieza una sesión sobre una tarea; `minutes` es la duración que propone el plan. */
+export async function startTaskSessionAction(taskId: string, minutes?: number): Promise<ActionResult> {
   const parsedId = idSchema.safeParse(taskId);
   if (!parsedId.success) return fail("Tarea no válida.");
+  const parsedMinutes = z.number().int().min(1).max(480).optional().safeParse(minutes);
+  if (!parsedMinutes.success) return fail("Duración no válida.");
   const session = await requireSession();
   try {
-    await startSession(session, { taskId: parsedId.data, subjectId: null }, QUICK_START_MINUTES);
+    await startSession(
+      session,
+      { taskId: parsedId.data, subjectId: null },
+      parsedMinutes.data ?? QUICK_START_MINUTES,
+    );
   } catch (error) {
     return fail(messageFromError(error));
   }

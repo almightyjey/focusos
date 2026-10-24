@@ -14,7 +14,7 @@ Primer usuario: estudiante de Ingeniería de Software en INTEC. La arquitectura 
 | 5 | Dashboard y calendario | Hecho: vistas semanal y mensual, eventos con repetición semanal |
 | 6 | Sesiones de estudio y temporizador | Hecho: temporizador con pausas, registro manual, estimado frente a real |
 | 7 | Calificaciones y progreso | Hecho: evaluaciones, promedio ponderado con datos completos y nota necesaria |
-| 8 | Motor de planificación determinista | Pendiente |
+| 8 | Motor de planificación determinista | Hecho: orden explicado, riesgo, plan del día y horario de estudio |
 | 9 | Extensiones para Notion e IA | Pendiente (tabla `integrations` lista) |
 
 ## Stack
@@ -71,6 +71,7 @@ src/
     actions/           Server Actions: validan con Zod, verifican sesión y llaman a servicios
   lib/supabase/        Clientes de navegador, servidor y proxy; tipos generados
   lib/env.ts           Variables públicas validadas
+  planner/             Motor de planificación: disponibilidad, puntuación y plan del día (puro, sin E/S)
   config/              Materias de demostración y paleta
   proxy.ts             Refresca la sesión y redirige de forma optimista
 supabase/migrations/   Esquema, restricciones, índices, triggers y RLS
@@ -131,17 +132,37 @@ Cada materia tiene su página (`/subjects/[id]`) con sus evaluaciones y sus tare
 - **Puntos extra:** una nota mayor que la máxima se acepta y se muestra tal cual.
 - **Dashboard:** el estado de cada materia muestra su nota actual. Las evaluaciones sin nota con fecha en los próximos 7 días aparecen en "Próximas entregas y exámenes", salvo que ese día ya haya un examen de la misma materia en el calendario.
 
+### Plan (motor de planificación)
+
+`src/planner/` es una función pura: recibe tareas, prioridades de materias, eventos del calendario, horario de estudio, zona horaria y la hora actual, y devuelve el orden recomendado, los huecos libres y el plan del día. No lee el reloj ni usa azar. Con las mismas entradas el resultado es idéntico, sin importar el orden en que lleguen las tareas, y los empates se resuelven por fecha límite, prioridad e id. Las pruebas lo verifican.
+
+**Puntuación** (0 a 1) = 0.45 × urgencia + 0.25 × prioridad + 0.10 × materia + 0.10 × dificultad + 0.10 × encaje.
+
+| Factor | Valor |
+| --- | --- |
+| Urgencia | 1 si ya venció; 1 / (1 + días / 2) si no (0.5 a dos días, ~0.22 a una semana); 0.1 sin fecha. Sube a 0.95 o más si la tarea está **en riesgo**: su esfuerzo pendiente supera el tiempo libre antes de la entrega (dentro de 14 días). |
+| Prioridad | baja 0.25, media 0.5, alta 0.75, urgente 1 |
+| Materia | la prioridad de la materia con la misma escala (media si no tiene materia) |
+| Dificultad | (dificultad − 1) / 4; sin dato = 0.5 (neutra) |
+| Encaje | próximo hueco libre ÷ siguiente bloque de la tarea, con tope de 1 |
+
+- **Esfuerzo pendiente** = estimación − tiempo ya estudiado (fase 6). Sin estimación, o si ya se superó, se propone un bloque de 30 min y se indica así.
+- **Tiempo libre:** el horario de estudio (Ajustes, por defecto de 08:00 a 22:00) menos los eventos con hora del calendario y menos lo que ya pasó. Los bloques de estudio y los eventos de todo el día no restan. No se ofrecen huecos de menos de 15 min.
+- **Plan del día:** recorre las tareas en orden y las coloca en los huecos de hoy en bloques de hasta 90 min, con 10 min de descanso, hasta cubrir el esfuerzo pendiente. Avisa si algo que vence hoy no cabe.
+- **Dónde se ve:** en `/plan`, con el orden, los motivos, la tabla de cada factor, el plan y los próximos huecos. En el dashboard, la tarjeta "Siguiente paso" (con botón para empezar una sesión de la duración propuesta) y el plan de hoy.
+
 ### Materias de demostración
 
 En **Materias** (estado vacío) está el botón "Añadir mis 8 materias de INTEC". Solo crea nombre, color y prioridad, con Cálculo Diferencial y los dos cursos de Programación en prioridad alta. No inventa códigos, créditos, horarios ni evaluaciones. La lista se edita en `src/config/demo-subjects.ts`. La operación no duplica materias: puedes pulsarlo varias veces y solo añade las que falten.
 
 ## Pruebas
 
-- **Unitarias** (`src/**/*.test.ts`): fechas y zonas horarias (incluido el horario de verano), agrupación de tareas, progreso semanal, rejilla del calendario, repetición semanal, solapes, tiempo de enfoque con pausas, resúmenes de estudio, precisión de estimaciones, promedio ponderado, nota necesaria y esquemas.
+- **Unitarias** (`src/**/*.test.ts`): fechas y zonas horarias (incluido el horario de verano), agrupación de tareas, progreso semanal, rejilla del calendario, repetición semanal, solapes, tiempo de enfoque con pausas, resúmenes de estudio, precisión de estimaciones, promedio ponderado, nota necesaria, motor de planificación (huecos libres, factores, riesgo, determinismo y reparto del día) y esquemas.
 - **RLS** (`tests/integration/rls.test.ts`): con la clave publicable, como el navegador, comprueba que el usuario B no puede leer, modificar, borrar ni referenciar datos de A (materias, tareas, eventos y calificaciones), que la base rechaza ponderaciones y notas máximas fuera de rango, que `anon` no ve nada y que una serie recurrente exige una zona horaria válida.
 - **E2E** (`e2e/first-delivery.spec.ts`): iniciar sesión, crear materia, crear tarea con fecha límite, verla en "Qué hacer hoy", completarla, recargar y confirmar que persiste. Después borra lo creado desde la interfaz.
 - **Temporizador** (`tests/integration/sessions.test.ts`): funciones RPC contra la base real. Cubre una sola sesión activa, que otro usuario no pueda ver ni controlar la sesión, pausar y reanudar, no registrar más de lo medido, totales por tarea solo para su dueño, rechazo de tiempo futuro o inflado, y sin acceso para `anon`.
 - **E2E de estudio** (`e2e/study.spec.ts`): sesión desde una tarea, pausa que sobrevive a recargar, terminar completando la tarea, tiempo real frente a estimado, registro manual, rechazo de tiempo futuro y descarte.
+- **E2E del planificador** (`e2e/planner.spec.ts`): fija el horario de estudio, crea dos tareas y comprueba el orden, los motivos, la tabla de puntuación, el primer bloque del plan, empezar desde la recomendación y la validación del horario.
 - **E2E de calificaciones** (`e2e/grades.spec.ts`): crea evaluaciones y comprueba el promedio (86.9), la nota necesaria (75.4 para un 80), que no hay promedio con datos incompletos, la recuperación al completarlos, el borrado con confirmación y la página de no encontrado para una materia ajena.
 - **E2E del calendario** (`e2e/calendar.spec.ts`): crear una clase semanal, verla en la semana actual, en la siguiente (con sus dos repeticiones), en el mes y en el dashboard, editar la serie y borrarla con confirmación. También comprueba que la hora de fin sea posterior al inicio.
 - **SQL** (`supabase/tests/rls_check.sql`): la misma verificación de RLS ejecutable en el SQL Editor.
@@ -153,7 +174,8 @@ Las pruebas de RLS y E2E necesitan dos usuarios confirmados del proyecto de desa
 1. **URLs de Auth.** En Supabase, *Authentication → URL Configuration*: Site URL `http://localhost:3000` (y la de Vercel cuando despliegues). En *Redirect URLs* añade `http://localhost:3000/**` y `https://<tu-dominio>/**`.
 2. **Correo.** El SMTP de prueba de Supabase solo envía a miembros de tu organización y tiene un límite bajo por hora. Para registrar otras cuentas, configura un SMTP propio en *Authentication → Emails → SMTP*.
 3. **Plantilla de confirmación (opcional).** La plantilla por defecto funciona con `/auth/callback`, pero el enlace debe abrirse en el mismo navegador. Para que funcione en cualquier navegador, cambia el enlace a `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next=/dashboard`.
-4. **Vercel.** Define `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` y `NEXT_PUBLIC_SITE_URL` en el proyecto.
+4. **OneDrive.** Si el proyecto está dentro de OneDrive, la sincronización puede convertir `.next/` en marcadores de posición de la nube y el build falla con `EPERM: operation not permitted, unlink`. Borra `.next/` y vuelve a compilar, o mejor, excluye la carpeta del proyecto de OneDrive (también evita sincronizar `node_modules`).
+5. **Vercel.** Define `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` y `NEXT_PUBLIC_SITE_URL` en el proyecto.
 
 ### Tipos de la base de datos
 

@@ -9,6 +9,7 @@ import { FormAlert } from "@/components/auth/form-alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { minutesToTime } from "@/domain/datetime";
 import { WEEKDAY_LABELS } from "@/domain/labels";
 import type { Profile } from "@/domain/types";
 import { profileFormSchema, WEEK_START_OPTIONS, type ProfileFormInput, type ProfileFormValues } from "@/schemas/profile";
@@ -35,6 +36,8 @@ export function ProfileForm({
       displayName: profile.displayName ?? "",
       timezone: profile.timezone,
       weekStartsOn: String(profile.weekStartsOn) as ProfileFormInput["weekStartsOn"],
+      studyStart: minutesToTime(profile.studyWindow.start),
+      studyEnd: minutesToTime(profile.studyWindow.end === 1440 ? 1439 : profile.studyWindow.end),
     },
   });
   const { errors, isSubmitting, isDirty } = form.formState;
@@ -94,6 +97,23 @@ export function ProfileForm({
           </select>
           <FieldError errors={[errors.weekStartsOn]} />
         </Field>
+        <fieldset className="grid gap-3">
+          <legend className="mb-1 text-sm font-medium">Horario de estudio</legend>
+          <div className="grid grid-cols-2 gap-3">
+            <Field data-invalid={Boolean(errors.studyStart)}>
+              <FieldLabel htmlFor="settings-study-start">Empiezo a estudiar</FieldLabel>
+              <Input id="settings-study-start" type="time" aria-invalid={Boolean(errors.studyStart)} {...form.register("studyStart")} />
+            </Field>
+            <Field data-invalid={Boolean(errors.studyEnd)}>
+              <FieldLabel htmlFor="settings-study-end">Termino</FieldLabel>
+              <Input id="settings-study-end" type="time" aria-invalid={Boolean(errors.studyEnd)} {...form.register("studyEnd")} />
+            </Field>
+          </div>
+          <FieldDescription>
+            El plan del día reparte tus tareas en este horario, sin contar las clases y eventos del calendario.
+          </FieldDescription>
+          <FieldError errors={[errors.studyStart, errors.studyEnd]} />
+        </fieldset>
       </FieldGroup>
       <Button type="submit" disabled={isSubmitting || !isDirty}>
         {isSubmitting ? "Guardando…" : "Guardar ajustes"}

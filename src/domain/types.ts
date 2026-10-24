@@ -109,6 +109,8 @@ export type Profile = {
   timezone: string;
   /** 0 = domingo … 6 = sábado */
   weekStartsOn: number;
+  /** Horario de estudio diario en minutos desde la medianoche local. */
+  studyWindow: { start: number; end: number };
 };
 
 export function isOpenTask(task: Pick<Task, "status">): boolean {

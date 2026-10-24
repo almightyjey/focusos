@@ -2,7 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 
-import { DEFAULT_TIMEZONE } from "@/domain/datetime";
+import { DEFAULT_STUDY_WINDOW, DEFAULT_TIMEZONE } from "@/domain/datetime";
 import type { Profile } from "@/domain/types";
 import type { Tables } from "@/lib/supabase/database.types";
 import type { ProfileFormValues } from "@/schemas/profile";
@@ -15,6 +15,7 @@ function toProfile(row: Tables<"profiles">): Profile {
     displayName: row.display_name,
     timezone: row.timezone,
     weekStartsOn: row.week_starts_on,
+    studyWindow: { start: row.study_window_start, end: row.study_window_end },
   };
 }
 
@@ -29,7 +30,13 @@ export const getProfile = cache(async (session: Session): Promise<Profile> => {
   // El trigger de registro crea el perfil; si faltara, se usan valores por defecto.
   return data
     ? toProfile(data)
-    : { id: session.userId, displayName: null, timezone: DEFAULT_TIMEZONE, weekStartsOn: 1 };
+    : {
+        id: session.userId,
+        displayName: null,
+        timezone: DEFAULT_TIMEZONE,
+        weekStartsOn: 1,
+        studyWindow: DEFAULT_STUDY_WINDOW,
+      };
 });
 
 export async function updateProfile(session: Session, values: ProfileFormValues): Promise<Profile> {
@@ -39,6 +46,8 @@ export async function updateProfile(session: Session, values: ProfileFormValues)
       display_name: values.displayName,
       timezone: values.timezone,
       week_starts_on: values.weekStartsOn,
+      study_window_start: values.studyStart,
+      study_window_end: values.studyEnd,
     })
     .eq("id", session.userId)
     .select("*")

@@ -71,13 +71,29 @@ describe("subjectFormSchema", () => {
 });
 
 describe("profileFormSchema", () => {
+  const profile = {
+    displayName: "",
+    timezone: "America/Santo_Domingo",
+    weekStartsOn: "1" as const,
+    studyStart: "08:00",
+    studyEnd: "22:00",
+  };
+
   it("acepta zonas IANA válidas y rechaza inventadas", () => {
-    expect(profileFormSchema.parse({ displayName: "", timezone: "America/Santo_Domingo", weekStartsOn: "1" })).toEqual({
+    expect(profileFormSchema.parse(profile)).toEqual({
       displayName: null,
       timezone: "America/Santo_Domingo",
       weekStartsOn: 1,
+      studyStart: 480,
+      studyEnd: 1320,
     });
-    expect(profileFormSchema.safeParse({ displayName: "", timezone: "Mars/Base", weekStartsOn: "1" }).success).toBe(false);
+    expect(profileFormSchema.safeParse({ ...profile, timezone: "Mars/Base" }).success).toBe(false);
+  });
+
+  it("exige que el horario de estudio termine después de empezar", () => {
+    const result = profileFormSchema.safeParse({ ...profile, studyStart: "22:00", studyEnd: "08:00" });
+    expect(result.error?.issues.map((issue) => issue.path.join("."))).toEqual(["studyEnd"]);
+    expect(profileFormSchema.parse({ ...profile, studyEnd: "24:00" }).studyEnd).toBe(1440);
   });
 });
 

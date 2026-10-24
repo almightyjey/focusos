@@ -111,6 +111,8 @@ export type Database = {
           created_at: string
           display_name: string | null
           id: string
+          study_window_end: number
+          study_window_start: number
           timezone: string
           updated_at: string
           week_starts_on: number
@@ -119,6 +121,8 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id: string
+          study_window_end?: number
+          study_window_start?: number
           timezone?: string
           updated_at?: string
           week_starts_on?: number
@@ -127,6 +131,8 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          study_window_end?: number
+          study_window_start?: number
           timezone?: string
           updated_at?: string
           week_starts_on?: number

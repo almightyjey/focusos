@@ -7,6 +7,9 @@ import { TZDate } from "@date-fns/tz";
 
 export const DEFAULT_TIMEZONE = "America/Santo_Domingo";
 export const DEFAULT_LOCALE = "es-DO";
+/** Horario de estudio por defecto (08:00 a 22:00); se cambia en Ajustes. */
+export const DEFAULT_STUDY_WINDOW = { start: 8 * 60, end: 22 * 60 } as const;
+
 /** Hora asignada cuando una entrega solo tiene fecha. */
 export const DEFAULT_DUE_TIME = "23:59";
 
@@ -175,4 +178,17 @@ export function formatMinutes(totalMinutes: number): string {
   if (hours === 0) return `${rest} min`;
   if (rest === 0) return `${hours} h`;
   return `${hours} h ${rest} min`;
+}
+
+/** 495 → "08:15"; 1440 → "24:00". */
+export function minutesToTime(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+/** "08:15" → 495. */
+export function timeToMinutes(time: string): number {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + m;
 }
