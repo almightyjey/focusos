@@ -70,6 +70,38 @@ export type Database = {
           },
         ]
       }
+      integration_credentials: {
+        Row: {
+          created_at: string
+          provider: Database["public"]["Enums"]["integration_provider"]
+          secret: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          provider: Database["public"]["Enums"]["integration_provider"]
+          secret: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          provider?: Database["public"]["Enums"]["integration_provider"]
+          secret?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_credentials_integration_fkey"
+            columns: ["user_id", "provider"]
+            isOneToOne: true
+            referencedRelation: "integrations"
+            referencedColumns: ["user_id", "provider"]
+          },
+        ]
+      }
       integrations: {
         Row: {
           created_at: string

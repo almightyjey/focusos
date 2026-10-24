@@ -14,5 +14,6 @@ export async function signIn(page: Page, next = "/dashboard") {
   await page.getByLabel("Correo").fill(testUser.email!);
   await page.getByLabel("Contraseña").fill(testUser.password!);
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(new RegExp(`${next.replace(/[?]/g, "\?")}$`));
+  // Con el servidor de desarrollo recién arrancado, la primera compilación tarda.
+  await expect(page).toHaveURL(new RegExp(`${next.replace(/[?]/g, "\?")}$`), { timeout: 30_000 });
 }

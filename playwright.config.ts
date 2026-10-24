@@ -32,5 +32,7 @@ export default defineConfig({
         url: baseURL,
         reuseExistingServer: !process.env.CI,
         timeout: 180_000,
+        // Asistente de IA local y determinista: las E2E nunca llaman a un proveedor real.
+        env: { AI_PROVIDER: "fake" },
       },
 });

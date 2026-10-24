@@ -138,6 +138,45 @@ export async function updateTask(
   return toTask(data);
 }
 
+/** Una tarea del usuario, o null si no existe o no es suya (RLS). */
+export async function getTask(session: Session, id: string): Promise<Task | null> {
+  const { data, error } = await session.supabase.from("tasks").select("*").eq("id", id).maybeSingle();
+  if (error) throw toDataError(error);
+  return data ? toTask(data) : null;
+}
+
+export const DESCRIPTION_MAX_LENGTH = 5000;
+
+/**
+ * Añade un bloque de texto al final de la descripción, sin tocar lo que ya
+ * había. Si se indica, fija la estimación solo cuando la tarea no tenía una.
+ */
+export async function appendToTaskDescription(
+  session: Session,
+  id: string,
+  block: string,
+  estimateIfMissing?: number,
+): Promise<Task> {
+  const task = await getTask(session, id);
+  if (!task) throw new DataError("No se encontró la tarea.", "not_found");
+  const description = task.description ? `${task.description.trimEnd()}\n\n${block}` : block;
+  if (description.length > DESCRIPTION_MAX_LENGTH) {
+    throw new DataError("La descripción quedaría demasiado larga. Recórtala antes de añadir los pasos.", "invalid");
+  }
+  const { data, error } = await session.supabase
+    .from("tasks")
+    .update({
+      description,
+      ...(estimateIfMissing && task.estimatedMinutes === null ? { estimated_minutes: estimateIfMissing } : {}),
+    })
+    .eq("id", id)
+    .select("*")
+    .maybeSingle();
+  if (error) throw toDataError(error);
+  if (!data) throw new DataError("No se encontró la tarea.", "not_found");
+  return toTask(data);
+}
+
 /** completed_at lo fija un trigger de la base según el estado. */
 export async function setTaskCompleted(session: Session, id: string, completed: boolean) {
   const { data, error } = await session.supabase

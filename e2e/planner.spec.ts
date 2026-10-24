@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { hasTestUser, signIn } from "./support/auth";
+import { deleteTaskIfPresent } from "./support/tasks";
 
 /**
  * Fase 8: el motor ordena por vencimiento y prioridad, explica por qué,
@@ -32,16 +33,6 @@ async function createTask(
   await dialog.getByLabel("Estimación (min)").fill(values.estimate);
   await dialog.getByRole("button", { name: "Crear tarea" }).click();
   await expect(dialog).toBeHidden();
-}
-
-async function deleteTask(page: Page, title: string) {
-  await page.goto("/tasks");
-  const item = page.getByTestId("task-item").filter({ hasText: title }).filter({ visible: true });
-  if ((await item.count()) === 0) return;
-  await item.getByRole("button", { name: `Acciones para ${title}` }).click();
-  await page.getByRole("menuitem", { name: "Eliminar" }).click();
-  await page.getByRole("alertdialog").getByRole("button", { name: "Eliminar tarea" }).click();
-  await expect(item).toHaveCount(0);
 }
 
 test("recomienda, explica y planifica", async ({ page }) => {
@@ -87,8 +78,8 @@ test("recomienda, explica y planifica", async ({ page }) => {
     await page.getByRole("alertdialog").getByRole("button", { name: "Descartar sesión" }).click();
     await expect(page.getByRole("button", { name: "Empezar", exact: true })).toBeVisible();
   } finally {
-    await deleteTask(page, urgent);
-    await deleteTask(page, later);
+    await deleteTaskIfPresent(page, urgent);
+    await deleteTaskIfPresent(page, later);
     await setStudyWindow(page, "08:00", "22:00");
   }
 });

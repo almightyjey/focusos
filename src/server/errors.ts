@@ -2,6 +2,9 @@ import "server-only";
 
 import type { PostgrestError } from "@supabase/supabase-js";
 
+import { AiProviderError } from "@/integrations/ai/types";
+import { IntegrationError } from "@/integrations/errors";
+
 /** Error de la capa de datos con un mensaje apto para mostrar al usuario. */
 export class DataError extends Error {
   constructor(
@@ -32,7 +35,9 @@ export function toDataError(error: PostgrestError, overrides: Record<string, str
 }
 
 export function messageFromError(error: unknown): string {
-  if (error instanceof DataError) return error.message;
+  if (error instanceof DataError || error instanceof AiProviderError || error instanceof IntegrationError) {
+    return error.message;
+  }
   console.error("[action] Error inesperado", error);
   return "No se pudo completar la operación. Inténtalo de nuevo.";
 }

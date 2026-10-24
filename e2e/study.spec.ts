@@ -29,6 +29,11 @@ function localInput(minutesAgo: number) {
 async function deleteSessionRows(page: Page, text: string) {
   await page.goto("/study");
   const rows = page.getByTestId("session-row").filter({ hasText: text });
+  // La lista llega por streaming: contar en seguida podía dar 0 y no borrar nada.
+  await rows
+    .first()
+    .waitFor({ state: "visible", timeout: 5_000 })
+    .catch(() => undefined);
   for (let remaining = await rows.count(); remaining > 0; remaining -= 1) {
     await rows.first().getByRole("button", { name: "Eliminar sesión" }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Eliminar sesión" }).click();
@@ -100,41 +105,46 @@ test("registro manual y descarte de una sesión", async ({ page }) => {
   await signIn(page, "/study");
   const weekBefore = await page.getByTestId("focus-week").textContent();
 
-  // Registrar 45 minutos que terminaron hace una hora
-  const start = localInput(105);
-  await page.getByRole("button", { name: "Registrar tiempo" }).click();
-  const dialog = page.getByRole("dialog");
-  await dialog.getByLabel("Día").fill(start.date);
-  await dialog.getByLabel("Empezaste").fill(start.time);
-  await dialog.getByLabel("Minutos de enfoque").fill("45");
-  await dialog.getByLabel("Notas (opcional)").fill(note);
-  await dialog.getByRole("button", { name: "Registrar tiempo" }).click();
-  await expect(dialog).toBeHidden();
-  const row = page.getByTestId("session-row").filter({ hasText: note });
-  await expect(row).toContainText("45 min");
-  await expect(page.getByTestId("focus-week")).not.toHaveText(weekBefore ?? "");
+  try {
+    // Registrar 45 minutos que terminaron hace una hora
+    const start = localInput(105);
+    await page.getByRole("button", { name: "Registrar tiempo" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel("Día").fill(start.date);
+    await dialog.getByLabel("Empezaste").fill(start.time);
+    await dialog.getByLabel("Minutos de enfoque").fill("45");
+    await dialog.getByLabel("Notas (opcional)").fill(note);
+    await dialog.getByRole("button", { name: "Registrar tiempo" }).click();
+    await expect(dialog).toBeHidden();
+    const row = page.getByTestId("session-row").filter({ hasText: note });
+    await expect(row).toContainText("45 min");
+    await expect(page.getByTestId("focus-week")).not.toHaveText(weekBefore ?? "");
 
-  // No se puede registrar tiempo en el futuro
-  const future = localInput(-120);
-  await page.getByRole("button", { name: "Registrar tiempo" }).click();
-  await dialog.getByLabel("Día").fill(future.date);
-  await dialog.getByLabel("Empezaste").fill(future.time);
-  await dialog.getByLabel("Minutos de enfoque").fill("30");
-  await dialog.getByRole("button", { name: "Registrar tiempo" }).click();
-  await expect(dialog.getByRole("alert")).toContainText("futuro");
-  await dialog.getByRole("button", { name: "Cancelar" }).click();
+    // No se puede registrar tiempo en el futuro
+    const future = localInput(-120);
+    await page.getByRole("button", { name: "Registrar tiempo" }).click();
+    await dialog.getByLabel("Día").fill(future.date);
+    await dialog.getByLabel("Empezaste").fill(future.time);
+    await dialog.getByLabel("Minutos de enfoque").fill("30");
+    await dialog.getByRole("button", { name: "Registrar tiempo" }).click();
+    await expect(dialog.getByRole("alert")).toContainText("futuro");
+    await dialog.getByRole("button", { name: "Cancelar" }).click();
 
-  // Empezar sin límite y descartar: no se registra nada
-  await page.getByLabel("Qué vas a estudiar").click();
-  await page.getByRole("option", { name: "Sin tarea ni materia" }).click();
-  await page.getByRole("radio", { name: "Sin límite" }).click();
-  await page.getByRole("button", { name: "Empezar", exact: true }).click();
-  await expect(page.getByTestId("session-clock")).toBeVisible();
-  await expect(page.getByText("Estudiando", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Descartar sesión" }).click();
-  await page.getByRole("alertdialog").getByRole("button", { name: "Descartar sesión" }).click();
-  await expect(page.getByRole("button", { name: "Empezar", exact: true })).toBeVisible();
-  await expect(page.getByTestId("session-row").filter({ hasText: "Estudio libre" }).filter({ hasNotText: note })).toHaveCount(0);
-
-  await deleteSessionRows(page, note);
+    // Empezar sin límite y descartar: no se registra nada
+    await page.getByLabel("Qué vas a estudiar").click();
+    await page.getByRole("option", { name: "Sin tarea ni materia" }).click();
+    await page.getByRole("radio", { name: "Sin límite" }).click();
+    await page.getByRole("button", { name: "Empezar", exact: true }).click();
+    await expect(page.getByTestId("session-clock")).toBeVisible();
+    await expect(page.getByText("Estudiando", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Descartar sesión" }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Descartar sesión" }).click();
+    await expect(page.getByRole("button", { name: "Empezar", exact: true })).toBeVisible();
+    // El descarte no deja fila. Se ignoran los registros manuales de otras corridas.
+    await expect(
+      page.getByTestId("session-row").filter({ hasText: "Estudio libre" }).filter({ hasNotText: "E2E manual" }),
+    ).toHaveCount(0);
+  } finally {
+    await deleteSessionRows(page, note);
+  }
 });

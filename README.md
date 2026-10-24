@@ -15,7 +15,7 @@ Primer usuario: estudiante de Ingeniería de Software en INTEC. La arquitectura 
 | 6 | Sesiones de estudio y temporizador | Hecho: temporizador con pausas, registro manual, estimado frente a real |
 | 7 | Calificaciones y progreso | Hecho: evaluaciones, promedio ponderado con datos completos y nota necesaria |
 | 8 | Motor de planificación determinista | Hecho: orden explicado, riesgo, plan del día y horario de estudio |
-| 9 | Extensiones para Notion e IA | Pendiente (tabla `integrations` lista) |
+| 9 | Extensiones para Notion e IA | Hecho: interfaz común de IA (Anthropic y OpenAI), dividir tareas en pasos, importación desde Notion sin duplicados. Opcionales: requieren tus claves |
 
 ## Stack
 
@@ -54,7 +54,7 @@ npm run dev
 | `npm run lint` | ESLint |
 | `npm run typecheck` | Genera los tipos de rutas y ejecuta `tsc --noEmit` |
 | `npm test` | Vitest: dominio, esquemas y RLS contra la base real |
-| `npm run test:e2e` | Playwright: flujo completo de la primera entrega |
+| `npm run test:e2e` | Playwright: flujos completos en el navegador (el asistente usa el proveedor de prueba) |
 | `npm run check` | lint + typecheck + test |
 
 ## Arquitectura
@@ -62,15 +62,17 @@ npm run dev
 ```
 src/
   app/                 Rutas. (auth) = login y registro; (app) = zona privada; auth/* = callbacks de correo
-  components/          UI: ui/ (shadcn), layout/, tasks/, subjects/, dashboard/, settings/
+  components/          UI: ui/ (shadcn), layout/, tasks/, subjects/, dashboard/, settings/, assistant/, integrations/
   domain/              Lógica pura y probada: fechas por zona horaria, agrupación de tareas, progreso
   schemas/             Validación Zod compartida por formularios (cliente) y acciones (servidor)
   server/
     auth.ts            Única puerta a la sesión (getClaims) para la capa de datos
     services/          Acceso a datos con Supabase; traduce filas a tipos de dominio
     actions/           Server Actions: validan con Zod, verifican sesión y llaman a servicios
-  lib/supabase/        Clientes de navegador, servidor y proxy; tipos generados
+  lib/supabase/        Clientes de navegador, servidor, proxy y admin (solo servidor); tipos generados
   lib/env.ts           Variables públicas validadas
+  lib/server-env.ts    Variables solo del servidor (claves de IA, Notion, clave secreta), todas opcionales
+  integrations/        Adaptadores externos: ai/ (interfaz común, Anthropic, OpenAI, prueba) y notion/ (OAuth, API, mapeo)
   planner/             Motor de planificación: disponibilidad, puntuación y plan del día (puro, sin E/S)
   config/              Materias de demostración y paleta
   proxy.ts             Refresca la sesión y redirige de forma optimista
@@ -84,14 +86,16 @@ Reglas que sigue el código:
 - Los componentes nunca llaman a Supabase ni a proveedores externos directamente. Pasan por Server Actions y servicios.
 - Toda entrada se valida dos veces con el mismo esquema Zod: en el formulario y en el servidor.
 - La autorización real está en la base (RLS). El proxy solo evita pintar páginas privadas sin sesión.
-- La clave secreta de Supabase no se usa en esta fase y nunca debe llevar el prefijo `NEXT_PUBLIC_`.
+- La clave secreta de Supabase solo la usa `src/lib/supabase/admin.ts`, en el servidor, para el estado de las integraciones y los tokens cifrados. Nunca lleva el prefijo `NEXT_PUBLIC_`.
+- Las llamadas a proveedores de IA viven en `src/integrations/ai/`. Los componentes solo llaman a Server Actions y nunca reciben claves.
 
 ### Datos y seguridad
 
 - **Aislamiento:** RLS activo en las 7 tablas, con políticas por operación basadas en `(select auth.uid()) = user_id`. `anon` no tiene privilegios.
 - **Claves foráneas compuestas** `(id, user_id)`: una tarea no puede apuntar a la materia de otro usuario aunque alguien envíe un id ajeno.
 - **`integrations`:** el cliente solo puede escribir `provider` y `settings` (privilegios por columna). El estado de conexión y la última sincronización solo los escribe el servidor, así la interfaz no puede mostrar una sincronización que no ocurrió.
-- **Sin duplicados al importar:** índices únicos `(user_id, external_source, external_id)` en `tasks` y `schedule_events`, y `(user_id, lower(name))` en `subjects`.
+- **Sin duplicados al importar:** restricciones únicas `(user_id, external_source, external_id)` en `tasks` y `schedule_events` (completas, para que sirvan de árbitro a `ON CONFLICT`), y `(user_id, lower(name))` en `subjects`.
+- **Tokens de integraciones:** `integration_credentials` tiene RLS activo y ningún privilegio para `anon` ni `authenticated`: solo el servidor con la clave secreta la lee. Los tokens se cifran antes con AES-256-GCM (`INTEGRATIONS_ENCRYPTION_KEY`), ligados al usuario y al proveedor. El asesor de Supabase avisa (nivel INFO) de que la tabla no tiene políticas: es intencional.
 - **Coherencia:** un trigger mantiene `completed_at` según el estado de la tarea. Las sesiones de estudio admiten una sola activa por usuario.
 - **Calificaciones:** nota, nota máxima y ponderación son opcionales. El promedio ponderado solo se calculará con todos los datos necesarios (fase 7).
 
@@ -151,6 +155,29 @@ Cada materia tiene su página (`/subjects/[id]`) con sus evaluaciones y sus tare
 - **Plan del día:** recorre las tareas en orden y las coloca en los huecos de hoy en bloques de hasta 90 min, con 10 min de descanso, hasta cubrir el esfuerzo pendiente. Avisa si algo que vence hoy no cabe.
 - **Dónde se ve:** en `/plan`, con el orden, los motivos, la tabla de cada factor, el plan y los próximos huecos. En el dashboard, la tarjeta "Siguiente paso" (con botón para empezar una sesión de la duración propuesta) y el plan de hoy.
 
+### Integraciones (opcionales)
+
+Están en **Ajustes → Integraciones**, que muestra el estado real de cada una y, si falta configuración, qué variables del servidor faltan (solo los nombres). Sin ellas, FocusOS funciona igual.
+
+**Asistente de IA.** `src/integrations/ai/types.ts` define una interfaz común (`AiProvider.generate`) con errores tipados. Hay tres adaptadores:
+
+- **Anthropic** (`anthropic.ts`, SDK oficial `@anthropic-ai/sdk`). Modelo por defecto `claude-opus-5-5` (cámbialo con `ANTHROPIC_MODEL`). Usa salida estructurada con esquema JSON y el respaldo del servidor (`fallbacks: "default"`, beta `server-side-fallback-2026-07-01`): si el modelo declina, la API reintenta con el modelo recomendado. Revisa `stop_reason` (negativa o respuesta cortada) antes de leer el texto.
+- **OpenAI** (`openai.ts`, SDK oficial `openai`, Responses API). Esquema JSON estricto y `store: false`. `OPENAI_MODEL` es obligatorio: no se asume ningún modelo.
+- **Prueba** (`fake.ts`, `AI_PROVIDER=fake`). Respuestas fijas, sin red ni coste, para las E2E. Bloqueado en producción y rotulado "sin IA real".
+
+Con una sola clave se usa ese proveedor. Con las dos, `AI_PROVIDER` decide.
+
+**Dividir en pasos** (menú de cada tarea). El diálogo dice qué datos se enviarán y a qué proveedor, y no envía nada hasta que pulsas "Generar sugerencia". Solo manda título, tipo, materia, fecha, estimación, dificultad y descripción (recortada). La respuesta se valida con Zod: se recortan textos y se acotan minutos, y lo que no tenga el formato esperado se rechaza con un mensaje claro. Nada se guarda hasta que pulsas "Añadir a la descripción", que añade una lista de verificación al final de las notas y, si la tarea no tenía estimación, puede usar la suma.
+
+**Notion (importar tareas).** Es una conexión OAuth pública: cada usuario conecta su propio espacio y elige qué bases comparte.
+
+- **Conectar:** `/api/integrations/notion/connect` → Notion → `/callback`. La cookie `state` (httpOnly, 10 min, ligada al usuario) protege contra CSRF. Solo se muestra "Conectado" si el token quedó guardado.
+- **Configurar:** se elige la base (data source) y qué propiedad es la fecha límite, si está hecha (casilla, o estado/selección con los valores que cuentan como completada) y la estimación en minutos, más una materia para las tareas nuevas. Se valida contra el esquema real de la base.
+- **Importar:** hasta 500 páginas por vez (avisa si había más). El título de la página es el de la tarea. Una fecha sin hora vence a las 23:59 locales.
+- **Reglas** (`src/domain/task-import.ts`, función pura y probada): importar dos veces no duplica, porque la tarea se identifica por `(notion, id de la página)` y la base lo garantiza además. Actualiza título, fecha y estimación si cambiaron. Un campo vacío en Notion no borra nada en FocusOS. Marca como completada lo que se hizo en Notion, pero nunca reabre ni toca tareas canceladas. Nunca borra tareas ni escribe en Notion.
+- **Honestidad:** el resultado dice cuántas se crearon, actualizaron, quedaron igual, no se pudieron guardar y no se importaron (con el motivo). La última sincronización solo se marca si se guardó todo lo leído. Si no, la integración queda "Con error" y lo explica.
+- **Tokens:** si caducan, se renuevan una vez con el refresh token (Notion entrega uno nuevo y se guarda). Si no se puede, pide reconectar. "Desconectar" (con confirmación) revoca el token en Notion, lo borra y deja intactas las tareas importadas.
+
 ### Materias de demostración
 
 En **Materias** (estado vacío) está el botón "Añadir mis 8 materias de INTEC". Solo crea nombre, color y prioridad, con Cálculo Diferencial y los dos cursos de Programación en prioridad alta. No inventa códigos, créditos, horarios ni evaluaciones. La lista se edita en `src/config/demo-subjects.ts`. La operación no duplica materias: puedes pulsarlo varias veces y solo añade las que falten.
@@ -165,6 +192,9 @@ En **Materias** (estado vacío) está el botón "Añadir mis 8 materias de INTEC
 - **E2E del planificador** (`e2e/planner.spec.ts`): fija el horario de estudio, crea dos tareas y comprueba el orden, los motivos, la tabla de puntuación, el primer bloque del plan, empezar desde la recomendación y la validación del horario.
 - **E2E de calificaciones** (`e2e/grades.spec.ts`): crea evaluaciones y comprueba el promedio (86.9), la nota necesaria (75.4 para un 80), que no hay promedio con datos incompletos, la recuperación al completarlos, el borrado con confirmación y la página de no encontrado para una materia ajena.
 - **E2E del calendario** (`e2e/calendar.spec.ts`): crear una clase semanal, verla en la semana actual, en la siguiente (con sus dos repeticiones), en el mes y en el dashboard, editar la serie y borrarla con confirmación. También comprueba que la hora de fin sea posterior al inicio.
+- **Integraciones (unitarias):** adaptadores de Anthropic y OpenAI con sus SDK reales y un `fetch` falso (petición, respaldo del servidor, negativas, respuestas cortadas, errores HTTP), registro de proveedores, variables del servidor, cifrado (contexto, clave, manipulación), petición y validación de "Dividir en pasos", reglas de importación, mapeo de páginas de Notion y cliente de Notion (paginación, esquema, errores).
+- **Importaciones** (`tests/integration/imports.test.ts`): contra la base real. Importar dos veces no duplica, actualiza lo que cambió, la restricción única rechaza duplicados directos, otro usuario puede usar el mismo id externo sin ver los del primero, los tokens no se pueden leer ni escribir con la clave publicable y el usuario no puede marcarse "conectado".
+- **E2E de integraciones** (`e2e/integrations.spec.ts`): Ajustes muestra el estado sin exponer secretos, y el asistente (proveedor de prueba) divide una tarea en pasos que solo se guardan al confirmar y persisten tras recargar.
 - **SQL** (`supabase/tests/rls_check.sql`): la misma verificación de RLS ejecutable en el SQL Editor.
 
 Las pruebas de RLS y E2E necesitan dos usuarios confirmados del proyecto de desarrollo en `.env.test.local`. Sin ellos, se omiten.
@@ -175,7 +205,14 @@ Las pruebas de RLS y E2E necesitan dos usuarios confirmados del proyecto de desa
 2. **Correo.** El SMTP de prueba de Supabase solo envía a miembros de tu organización y tiene un límite bajo por hora. Para registrar otras cuentas, configura un SMTP propio en *Authentication → Emails → SMTP*.
 3. **Plantilla de confirmación (opcional).** La plantilla por defecto funciona con `/auth/callback`, pero el enlace debe abrirse en el mismo navegador. Para que funcione en cualquier navegador, cambia el enlace a `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next=/dashboard`.
 4. **OneDrive.** Si el proyecto está dentro de OneDrive, la sincronización puede convertir `.next/` en marcadores de posición de la nube y el build falla con `EPERM: operation not permitted, unlink`. Borra `.next/` y vuelve a compilar, o mejor, excluye la carpeta del proyecto de OneDrive (también evita sincronizar `node_modules`).
-5. **Vercel.** Define `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` y `NEXT_PUBLIC_SITE_URL` en el proyecto.
+5. **Vercel.** Define `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` y `NEXT_PUBLIC_SITE_URL` en el proyecto. Las variables de las integraciones van sin `NEXT_PUBLIC_` y solo si las usas.
+6. **Asistente de IA (opcional).** Añade `ANTHROPIC_API_KEY` (y, si quieres, `ANTHROPIC_MODEL`) o `OPENAI_API_KEY` y `OPENAI_MODEL` en `.env.local` o en Vercel. Cada sugerencia cuesta según la tarifa de tu proveedor. No hay límite por usuario: antes de abrir la app a más personas, conviene añadir uno.
+7. **Notion (opcional).**
+   1. En https://www.notion.so/profile/integrations crea una integración **pública**, con permiso de solo lectura de contenido, y como Redirect URI `<NEXT_PUBLIC_SITE_URL>/api/integrations/notion/callback` (por ejemplo `http://localhost:3000/api/integrations/notion/callback`).
+   2. Copia el OAuth client ID y el secret en `NOTION_CLIENT_ID` y `NOTION_CLIENT_SECRET`.
+   3. Añade `SUPABASE_SECRET_KEY` (*Project Settings → API Keys → Secret key*).
+   4. Genera `INTEGRATIONS_ENCRYPTION_KEY` con `openssl rand -base64 32`. Si la cambias, los usuarios tendrán que reconectar.
+   5. Reinicia el servidor y conecta desde Ajustes.
 
 ### Tipos de la base de datos
 

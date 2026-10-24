@@ -1,9 +1,11 @@
 "use client";
 
-import { EllipsisIcon, PencilIcon, TimerIcon, Trash2Icon } from "lucide-react";
+import { EllipsisIcon, ListChecksIcon, PencilIcon, TimerIcon, Trash2Icon } from "lucide-react";
 import { useOptimistic, useState, useTransition } from "react";
 import { toast } from "sonner";
 
+import { useAssistantStatus } from "@/components/assistant/assistant-status";
+import { TaskStepsDialog } from "@/components/assistant/task-steps-dialog";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { SubjectSwatch } from "@/components/subjects/subject-swatch";
 import { DueLabel } from "@/components/tasks/due-label";
@@ -51,6 +53,8 @@ export function TaskItem({
   const [, startTransition] = useTransition();
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [splitting, setSplitting] = useState(false);
+  const assistant = useAssistantStatus();
   const subject = subjects.find((s) => s.id === task.subjectId);
   const checkboxId = `task-${task.id}`;
 
@@ -141,6 +145,11 @@ export function TaskItem({
               <TimerIcon aria-hidden /> Estudiar ahora (25 min)
             </DropdownMenuItem>
           ) : null}
+          {assistant.enabled && !optimisticDone ? (
+            <DropdownMenuItem onSelect={() => setSplitting(true)}>
+              <ListChecksIcon aria-hidden /> Dividir en pasos
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuItem onSelect={() => setEditing(true)}>
             <PencilIcon aria-hidden /> Editar
           </DropdownMenuItem>
@@ -159,6 +168,9 @@ export function TaskItem({
         open={editing}
         onOpenChange={setEditing}
       />
+      {assistant.enabled ? (
+        <TaskStepsDialog task={task} providerLabel={assistant.label} open={splitting} onOpenChange={setSplitting} />
+      ) : null}
       <ConfirmDialog
         open={deleting}
         onOpenChange={setDeleting}
