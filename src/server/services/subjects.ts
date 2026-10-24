@@ -33,6 +33,13 @@ export async function listSubjects(
   return data.map(toSubject);
 }
 
+/** Una materia del usuario, o null si no existe o no es suya (RLS). */
+export async function getSubject(session: Session, id: string): Promise<Subject | null> {
+  const { data, error } = await session.supabase.from("subjects").select("*").eq("id", id).maybeSingle();
+  if (error) throw toDataError(error);
+  return data ? toSubject(data) : null;
+}
+
 export async function createSubject(session: Session, values: SubjectFormValues): Promise<Subject> {
   const { data, error } = await session.supabase
     .from("subjects")

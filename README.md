@@ -13,7 +13,7 @@ Primer usuario: estudiante de Ingeniería de Software en INTEC. La arquitectura 
 | 4 | Materias y tareas (CRUD) | Hecho |
 | 5 | Dashboard y calendario | Hecho: vistas semanal y mensual, eventos con repetición semanal |
 | 6 | Sesiones de estudio y temporizador | Hecho: temporizador con pausas, registro manual, estimado frente a real |
-| 7 | Calificaciones y progreso | Pendiente (tabla lista) |
+| 7 | Calificaciones y progreso | Hecho: evaluaciones, promedio ponderado con datos completos y nota necesaria |
 | 8 | Motor de planificación determinista | Pendiente |
 | 9 | Extensiones para Notion e IA | Pendiente (tabla `integrations` lista) |
 
@@ -120,17 +120,29 @@ La base guarda instantes (`timestamptz`, UTC). Cada perfil tiene una zona IANA (
 - **Planificado frente a completado:** lo planificado son los bloques de estudio del calendario de la semana. El dashboard y `/study` comparan con el enfoque completado.
 - Las sesiones descartadas se guardan como `cancelled` y no cuentan en ningún total.
 
+### Calificaciones
+
+Cada materia tiene su página (`/subjects/[id]`) con sus evaluaciones y sus tareas pendientes. `/grades` resume todas las materias.
+
+- **Evaluación:** nombre, tipo, nota obtenida, nota máxima, ponderación (% de la nota final) y fecha. Todo lo numérico es opcional: se completa cuando se conoce. Los decimales aceptan coma o punto, y se muestran con punto (es-DO).
+- **Promedio ponderado:** solo se calcula si **cada** evaluación con nota tiene también nota máxima y ponderación. Si falta algo, la app dice qué evaluación y qué dato faltan, y no muestra ningún número. Si las ponderaciones suman más del 100 %, tampoco calcula.
+- **Nota actual** = suma de (nota / máxima × ponderación) ÷ ponderación evaluada × 100. **Puntos asegurados** = lo que ya cuenta de la nota final sobre 100.
+- **Nota necesaria:** escribes la nota final que buscas y calcula el promedio que necesitas en el porcentaje que queda por evaluar. Indica también si ya está asegurada o si no alcanza. No se guarda ni se asume una nota mínima de aprobación.
+- **Puntos extra:** una nota mayor que la máxima se acepta y se muestra tal cual.
+- **Dashboard:** el estado de cada materia muestra su nota actual. Las evaluaciones sin nota con fecha en los próximos 7 días aparecen en "Próximas entregas y exámenes", salvo que ese día ya haya un examen de la misma materia en el calendario.
+
 ### Materias de demostración
 
 En **Materias** (estado vacío) está el botón "Añadir mis 8 materias de INTEC". Solo crea nombre, color y prioridad, con Cálculo Diferencial y los dos cursos de Programación en prioridad alta. No inventa códigos, créditos, horarios ni evaluaciones. La lista se edita en `src/config/demo-subjects.ts`. La operación no duplica materias: puedes pulsarlo varias veces y solo añade las que falten.
 
 ## Pruebas
 
-- **Unitarias** (`src/**/*.test.ts`): fechas y zonas horarias (incluido el horario de verano), agrupación de tareas, progreso semanal, rejilla del calendario, repetición semanal, solapes, tiempo de enfoque con pausas, resúmenes de estudio, precisión de estimaciones y esquemas.
-- **RLS** (`tests/integration/rls.test.ts`): con la clave publicable, como el navegador, comprueba que el usuario B no puede leer, modificar, borrar ni referenciar datos de A (materias, tareas y eventos), que `anon` no ve nada y que una serie recurrente exige una zona horaria válida.
+- **Unitarias** (`src/**/*.test.ts`): fechas y zonas horarias (incluido el horario de verano), agrupación de tareas, progreso semanal, rejilla del calendario, repetición semanal, solapes, tiempo de enfoque con pausas, resúmenes de estudio, precisión de estimaciones, promedio ponderado, nota necesaria y esquemas.
+- **RLS** (`tests/integration/rls.test.ts`): con la clave publicable, como el navegador, comprueba que el usuario B no puede leer, modificar, borrar ni referenciar datos de A (materias, tareas, eventos y calificaciones), que la base rechaza ponderaciones y notas máximas fuera de rango, que `anon` no ve nada y que una serie recurrente exige una zona horaria válida.
 - **E2E** (`e2e/first-delivery.spec.ts`): iniciar sesión, crear materia, crear tarea con fecha límite, verla en "Qué hacer hoy", completarla, recargar y confirmar que persiste. Después borra lo creado desde la interfaz.
 - **Temporizador** (`tests/integration/sessions.test.ts`): funciones RPC contra la base real. Cubre una sola sesión activa, que otro usuario no pueda ver ni controlar la sesión, pausar y reanudar, no registrar más de lo medido, totales por tarea solo para su dueño, rechazo de tiempo futuro o inflado, y sin acceso para `anon`.
 - **E2E de estudio** (`e2e/study.spec.ts`): sesión desde una tarea, pausa que sobrevive a recargar, terminar completando la tarea, tiempo real frente a estimado, registro manual, rechazo de tiempo futuro y descarte.
+- **E2E de calificaciones** (`e2e/grades.spec.ts`): crea evaluaciones y comprueba el promedio (86.9), la nota necesaria (75.4 para un 80), que no hay promedio con datos incompletos, la recuperación al completarlos, el borrado con confirmación y la página de no encontrado para una materia ajena.
 - **E2E del calendario** (`e2e/calendar.spec.ts`): crear una clase semanal, verla en la semana actual, en la siguiente (con sus dos repeticiones), en el mes y en el dashboard, editar la serie y borrarla con confirmación. También comprueba que la hora de fin sea posterior al inicio.
 - **SQL** (`supabase/tests/rls_check.sql`): la misma verificación de RLS ejecutable en el SQL Editor.
 

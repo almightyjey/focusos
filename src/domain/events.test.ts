@@ -148,6 +148,28 @@ describe("agenda del dashboard", () => {
     expect(days[0].items.map((i) => `${i.type}:${i.title}`)).toEqual(["exam:Parcial", "task:Informe"]);
   });
 
+  it("incluye evaluaciones sin nota y no las duplica con un examen del mismo día", () => {
+    const evaluation = (id: string, subjectId: string, date: string, score: number | null = null) => ({
+      id,
+      subjectId,
+      title: id,
+      category: "exam" as const,
+      score,
+      maxScore: 100,
+      weight: 25,
+      dueAt: local(date, "23:59"),
+      notes: null,
+    });
+    const exam = occ({ key: "x", kind: "exam", subjectId: "calc", startsAt: local("2026-10-24", "08:00"), endsAt: local("2026-10-24", "10:00") });
+    const days = upcomingAgenda([], [exam], now, SD, 7, [
+      evaluation("Parcial calc", "calc", "2026-10-24"),
+      evaluation("Parcial prog", "prog", "2026-10-24"),
+      evaluation("Ya calificada", "prog", "2026-10-25", 90),
+    ]);
+    expect(days).toHaveLength(1);
+    expect(days[0].items.map((i) => `${i.type}:${i.title}`)).toEqual(["exam:Evento", "evaluation:Parcial prog"]);
+  });
+
   it("devuelve el horario de hoy", () => {
     const today = occ({ key: "hoy", startsAt: local("2026-10-22", "14:00"), endsAt: local("2026-10-22", "15:00") });
     const tomorrow = occ({ key: "mañana", startsAt: local("2026-10-23", "14:00"), endsAt: local("2026-10-23", "15:00") });

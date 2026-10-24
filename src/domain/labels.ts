@@ -1,4 +1,4 @@
-import type { EventKind, PriorityLevel, TaskKind, TaskStatus } from "@/domain/types";
+import type { EventKind, GradeCategory, PriorityLevel, TaskKind, TaskStatus } from "@/domain/types";
 
 export const PRIORITY_LABELS: Record<PriorityLevel, string> = {
   low: "Baja",
@@ -40,6 +40,17 @@ export const EVENT_KIND_LABELS: Record<EventKind, string> = {
   deadline: "Fecha límite",
   personal: "Personal",
   other: "Otro",
+};
+
+export const GRADE_CATEGORY_LABELS: Record<GradeCategory, string> = {
+  exam: "Examen",
+  quiz: "Prueba corta",
+  assignment: "Tarea",
+  project: "Proyecto",
+  lab: "Laboratorio",
+  participation: "Participación",
+  presentation: "Exposición",
+  other: "Otra",
 };
 
 /** Iniciales de los días, de domingo a sábado. */

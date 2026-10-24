@@ -29,6 +29,18 @@ export const EVENT_KINDS = [
 ] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
 
+export const GRADE_CATEGORIES = [
+  "exam",
+  "quiz",
+  "assignment",
+  "project",
+  "lab",
+  "participation",
+  "presentation",
+  "other",
+] as const;
+export type GradeCategory = (typeof GRADE_CATEGORIES)[number];
+
 /** Estados que siguen pendientes de trabajo. */
 export const OPEN_TASK_STATUSES = ["pending", "in_progress"] as const satisfies readonly TaskStatus[];
 
@@ -75,6 +87,20 @@ export type ScheduleEvent = {
   recurrenceRule: string | null;
   /** Zona IANA en la que se expande la repetición. */
   timezone: string | null;
+};
+
+/** Evaluación de una materia. Cualquier dato numérico puede ser desconocido (null). */
+export type GradeItem = {
+  id: string;
+  subjectId: string;
+  title: string;
+  category: GradeCategory;
+  score: number | null;
+  maxScore: number | null;
+  /** Porcentaje de la nota final, en (0, 100]. */
+  weight: number | null;
+  dueAt: string | null;
+  notes: string | null;
 };
 
 export type Profile = {

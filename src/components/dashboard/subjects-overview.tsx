@@ -3,14 +3,18 @@ import Link from "next/link";
 import { SectionHeading } from "@/components/page-header";
 import { SubjectSwatch } from "@/components/subjects/subject-swatch";
 import { DueLabel } from "@/components/tasks/due-label";
+import { formatGrade, type GradeSummary } from "@/domain/grades";
 import type { SubjectSummary } from "@/domain/tasks";
 
 export function SubjectsOverview({
   summaries,
+  grades,
   nowIso,
   timeZone,
 }: {
   summaries: SubjectSummary[];
+  /** Resumen de calificaciones por materia. */
+  grades: Map<string, GradeSummary>;
   nowIso: string;
   timeZone: string;
 }) {
@@ -37,11 +41,12 @@ export function SubjectsOverview({
           {summaries.map(({ subject, openCount, overdueCount, nextDue }) => (
             <li key={subject.id} className="py-2.5">
               <Link
-                href={`/tasks?subject=${subject.id}`}
+                href={`/subjects/${subject.id}`}
                 className="flex items-center gap-2 rounded-sm text-sm font-medium outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
               >
                 <SubjectSwatch color={subject.color} />
-                <span className="truncate">{subject.name}</span>
+                <span className="min-w-0 flex-1 truncate">{subject.name}</span>
+                <GradeBadge summary={grades.get(subject.id)} />
               </Link>
               <p className="mt-0.5 flex flex-wrap gap-x-3 pl-[1.125rem] text-xs text-muted-foreground">
                 <span className="tabular">
@@ -63,5 +68,14 @@ export function SubjectsOverview({
         </ul>
       )}
     </section>
+  );
+}
+
+function GradeBadge({ summary }: { summary?: GradeSummary }) {
+  if (summary?.currentAverage == null) return null;
+  return (
+    <span className="tabular shrink-0 text-sm font-semibold" title="Nota actual sobre lo evaluado">
+      {formatGrade(summary.currentAverage)}
+    </span>
   );
 }

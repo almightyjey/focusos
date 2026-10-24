@@ -135,6 +135,29 @@ describe.skipIf(!configured)("RLS: aislamiento entre usuarios", () => {
     expect(invalid.error?.code).toBe("22023");
   });
 
+  it("las calificaciones son privadas y respetan sus rangos", async () => {
+    const created = await a.client
+      .from("grade_items")
+      .insert({ subject_id: subjectId, title: `${name} parcial`, score: 85, max_score: 100, weight: 25 })
+      .select("id")
+      .single();
+    expect(created.error).toBeNull();
+    try {
+      const read = await b.client.from("grade_items").select("id").eq("id", created.data!.id);
+      expect(read.data).toEqual([]);
+      const update = await b.client.from("grade_items").update({ score: 100 }).eq("id", created.data!.id).select("id");
+      expect(update.data).toEqual([]);
+      const link = await b.client.from("grade_items").insert({ subject_id: subjectId, title: "nota ajena" });
+      expect(link.error?.code).toBe("23503");
+      const overWeight = await a.client.from("grade_items").insert({ subject_id: subjectId, title: "x", weight: 120 });
+      expect(overWeight.error?.code).toBe("23514");
+      const zeroMax = await a.client.from("grade_items").insert({ subject_id: subjectId, title: "x", max_score: 0 });
+      expect(zeroMax.error?.code).toBe("23514");
+    } finally {
+      await a.client.from("grade_items").delete().eq("id", created.data!.id);
+    }
+  });
+
   it("nadie puede marcar una integración como conectada desde el cliente", async () => {
     const { error } = await a.client.from("integrations").insert({ provider: "notion", status: "connected" });
     expect(error?.code).toBe("42501");

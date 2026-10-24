@@ -2,21 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Suspense } from "react";
 
 import { NAV_ITEMS } from "@/components/layout/nav-items";
 import { cn } from "@/lib/utils";
 
-function useIsActive() {
-  const pathname = usePathname();
-  return (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+function activeHrefFor(pathname: string): string | null {
+  return NAV_ITEMS.find(({ href }) => pathname === href || pathname.startsWith(`${href}/`))?.href ?? null;
 }
 
-export function SidebarNav() {
-  const isActive = useIsActive();
+function SidebarNavList({ activeHref }: { activeHref: string | null }) {
   return (
     <nav aria-label="Principal" className="flex flex-col gap-0.5">
       {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-        const active = isActive(href);
+        const active = href === activeHref;
         return (
           <Link
             key={href}
@@ -36,8 +35,7 @@ export function SidebarNav() {
   );
 }
 
-export function BottomNav() {
-  const isActive = useIsActive();
+function BottomNavList({ activeHref }: { activeHref: string | null }) {
   return (
     <nav
       aria-label="Principal"
@@ -45,7 +43,7 @@ export function BottomNav() {
     >
       <ul className="mx-auto grid max-w-lg grid-cols-5">
         {NAV_ITEMS.filter((item) => item.mobile).map(({ href, label, icon: Icon }) => {
-          const active = isActive(href);
+          const active = href === activeHref;
           return (
             <li key={href}>
               <Link
@@ -64,5 +62,34 @@ export function BottomNav() {
         })}
       </ul>
     </nav>
+  );
+}
+
+function ActiveSidebarNav() {
+  return <SidebarNavList activeHref={activeHrefFor(usePathname())} />;
+}
+
+function ActiveBottomNav() {
+  return <BottomNavList activeHref={activeHrefFor(usePathname())} />;
+}
+
+/*
+ * La ruta actual solo se conoce al pedir la página (p. ej. /subjects/[id]), así
+ * que el resaltado va dentro de Suspense: el shell estático muestra los mismos
+ * enlaces sin marcar y se completa al llegar la URL.
+ */
+export function SidebarNav() {
+  return (
+    <Suspense fallback={<SidebarNavList activeHref={null} />}>
+      <ActiveSidebarNav />
+    </Suspense>
+  );
+}
+
+export function BottomNav() {
+  return (
+    <Suspense fallback={<BottomNavList activeHref={null} />}>
+      <ActiveBottomNav />
+    </Suspense>
   );
 }

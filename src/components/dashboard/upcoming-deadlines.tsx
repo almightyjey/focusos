@@ -3,6 +3,7 @@ import { SubjectSwatch } from "@/components/subjects/subject-swatch";
 import type { SubjectOption } from "@/components/tasks/task-form-dialog";
 import type { UpcomingDay } from "@/domain/agenda";
 import { formatDayHeading } from "@/domain/datetime";
+import { formatGrade } from "@/domain/grades";
 
 function formatTime(iso: string, timeZone: string) {
   return new Intl.DateTimeFormat("es-DO", {
@@ -38,18 +39,26 @@ export function UpcomingDeadlines({
                 {day.items.map((item) => {
                   const subject = subjects.find((s) => s.id === item.subjectId);
                   const isExam = item.type === "exam";
+                  const isEvaluation = item.type === "evaluation";
                   return (
                     <li key={`${item.type}-${item.id}`} className="min-w-0">
                       <p className="truncate text-sm font-medium">
                         {isExam ? <span className="font-semibold">Examen: </span> : null}
+                        {isEvaluation ? <span className="font-semibold">Evaluación: </span> : null}
                         {item.title}
                       </p>
                       <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                         {subject ? <SubjectSwatch color={subject.color} /> : null}
                         <span className="truncate">{subject?.name ?? "Sin materia"}</span>
-                        <time dateTime={item.at} className="tabular ml-auto shrink-0">
-                          {isExam && item.allDay ? "Todo el día" : formatTime(item.at, timeZone)}
-                        </time>
+                        {item.type === "evaluation" ? (
+                          <span className="tabular ml-auto shrink-0">
+                            {item.weight === null ? "Sin ponderación" : `${formatGrade(item.weight, 2)} %`}
+                          </span>
+                        ) : (
+                          <time dateTime={item.at} className="tabular ml-auto shrink-0">
+                            {item.type === "exam" && item.allDay ? "Todo el día" : formatTime(item.at, timeZone)}
+                          </time>
+                        )}
                       </p>
                     </li>
                   );

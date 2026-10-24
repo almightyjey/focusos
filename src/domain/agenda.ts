@@ -1,18 +1,21 @@
 import { addDaysToKey, dayKey } from "@/domain/datetime";
 import { occurrencesByDay, type EventOccurrence } from "@/domain/events";
 import { compareOpenTasks } from "@/domain/tasks";
-import { isOpenTask, type Task } from "@/domain/types";
+import { isOpenTask, type GradeItem, type Task } from "@/domain/types";
 
 /** Lo que el dashboard lista como próximo: entregas y exámenes. */
 export type UpcomingItem =
   | { type: "task"; id: string; title: string; subjectId: string | null; at: string }
-  | { type: "exam"; id: string; title: string; subjectId: string | null; at: string; allDay: boolean };
+  | { type: "exam"; id: string; title: string; subjectId: string | null; at: string; allDay: boolean }
+  | { type: "evaluation"; id: string; title: string; subjectId: string | null; at: string; weight: number | null };
 
 export type UpcomingDay = { dayKey: string; items: UpcomingItem[] };
 
 /**
- * Entregas abiertas y exámenes de los próximos `days` días (sin contar hoy),
- * agrupados por día local y ordenados por hora.
+ * Entregas abiertas, exámenes y evaluaciones sin nota de los próximos `days`
+ * días (sin contar hoy), agrupados por día local y ordenados por hora. Una
+ * evaluación se omite si ese día ya hay un examen de la misma materia en el
+ * calendario, para no mostrar dos veces lo mismo.
  */
 export function upcomingAgenda(
   tasks: Task[],
@@ -20,6 +23,7 @@ export function upcomingAgenda(
   now: Date,
   timeZone: string,
   days = 7,
+  evaluations: GradeItem[] = [],
 ): UpcomingDay[] {
   const todayKey = dayKey(now, timeZone);
   const lastKey = addDaysToKey(todayKey, days);
@@ -51,13 +55,32 @@ export function upcomingAgenda(
     });
   }
 
+  const examDays = new Set(
+    occurrences
+      .filter((occurrence) => occurrence.kind === "exam")
+      .map((occurrence) => `${occurrence.subjectId}:${dayKey(occurrence.startsAt, timeZone)}`),
+  );
+  for (const evaluation of evaluations) {
+    if (evaluation.score !== null || !evaluation.dueAt) continue;
+    const key = dayKey(evaluation.dueAt, timeZone);
+    if (examDays.has(`${evaluation.subjectId}:${key}`)) continue;
+    add(key, {
+      type: "evaluation",
+      id: evaluation.id,
+      title: evaluation.title,
+      subjectId: evaluation.subjectId,
+      at: evaluation.dueAt,
+      weight: evaluation.weight,
+    });
+  }
+
   return [...byDay.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, items]) => ({
       dayKey: key,
-      // Los exámenes primero dentro del día: suelen condicionar el resto.
+      // Exámenes y evaluaciones primero dentro del día: suelen condicionar el resto.
       items: items.sort(
-        (a, b) => Number(b.type === "exam") - Number(a.type === "exam") || Date.parse(a.at) - Date.parse(b.at),
+        (a, b) => Number(b.type !== "task") - Number(a.type !== "task") || Date.parse(a.at) - Date.parse(b.at),
       ),
     }));
 }

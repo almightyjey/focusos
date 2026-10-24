@@ -17,9 +17,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { todaySchedule, upcomingAgenda } from "@/domain/agenda";
 import { addDaysToKey, dayKey, formatLongDate, startOfWeekKey, zonedInputToUtc } from "@/domain/datetime";
 import { expandOccurrences } from "@/domain/events";
+import { summarizeGrades } from "@/domain/grades";
 import { buildTodayAgenda, summarizeSubjects, weeklyProgress } from "@/domain/tasks";
 import { requireSession } from "@/server/auth";
 import { listEventsInRange } from "@/server/services/events";
+import { listGradeItems } from "@/server/services/grades";
 import { getProfile } from "@/server/services/profiles";
 import { loadWeekStudyStats } from "@/server/services/study-stats";
 import { listSubjects } from "@/server/services/subjects";
@@ -47,12 +49,19 @@ async function DashboardContent() {
   const eventsFrom = zonedInputToUtc(todayKey, "00:00", timeZone).toISOString();
   const eventsTo = zonedInputToUtc(addDaysToKey(todayKey, 8), "00:00", timeZone).toISOString();
 
-  const [subjects, tasks, events, study] = await Promise.all([
+  const [subjects, tasks, events, study, gradeItems] = await Promise.all([
     listSubjects(session),
     listDashboardTasks(session, weekStart.toISOString()),
     listEventsInRange(session, eventsFrom, eventsTo),
     loadWeekStudyStats(session, profile, now),
+    listGradeItems(session),
   ]);
+  const gradeSummaries = new Map(
+    subjects.map((subject) => [
+      subject.id,
+      summarizeGrades(gradeItems.filter((item) => item.subjectId === subject.id)),
+    ]),
+  );
   const occurrences = expandOccurrences(events, eventsFrom, eventsTo, timeZone);
 
   const subjectOptions = subjects.map(({ id, name, color }) => ({ id, name, color }));
@@ -118,11 +127,16 @@ async function DashboardContent() {
           />
           <WeekProgress progress={weeklyProgress(tasks, now, timeZone, profile.weekStartsOn)} />
           <UpcomingDeadlines
-            days={upcomingAgenda(tasks, occurrences, now, timeZone)}
+            days={upcomingAgenda(tasks, occurrences, now, timeZone, 7, gradeItems)}
             subjects={subjectOptions}
             timeZone={timeZone}
           />
-          <SubjectsOverview summaries={summarizeSubjects(subjects, tasks, now)} nowIso={nowIso} timeZone={timeZone} />
+          <SubjectsOverview
+            summaries={summarizeSubjects(subjects, tasks, now)}
+            grades={gradeSummaries}
+            nowIso={nowIso}
+            timeZone={timeZone}
+          />
         </aside>
       </div>
     </>
