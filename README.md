@@ -214,6 +214,46 @@ Las pruebas de RLS y E2E necesitan dos usuarios confirmados del proyecto de desa
    4. Genera `INTEGRATIONS_ENCRYPTION_KEY` con `openssl rand -base64 32`. Si la cambias, los usuarios tendrán que reconectar.
    5. Reinicia el servidor y conecta desde Ajustes.
 
+## Despliegue en Cloudflare
+
+FocusOS se despliega en Cloudflare Workers con [OpenNext](https://opennext.js.org/cloudflare) (`@opennextjs/cloudflare`). La configuración está en `wrangler.jsonc` y `open-next.config.ts`.
+
+| Script | Qué hace |
+| --- | --- |
+| `npm run cf:build` | Build de Next.js y empaquetado para Workers (`.open-next/`) |
+| `npm run cf:preview` | Lo anterior y lo sirve en local con workerd, el runtime de Cloudflare (http://localhost:8787) |
+| `npm run cf:deploy` | Lo anterior y lo publica en tu cuenta |
+
+### Desde GitHub (recomendado)
+
+Cloudflare compila en Linux y publica cada push a `main` (Workers Builds). No sube nada pesado desde tu equipo.
+
+1. En el panel de Cloudflare: *Workers & Pages → Create application → Import a repository*. Conecta GitHub y elige `focusos`.
+2. **Nombre del proyecto:** `focusos`. Debe coincidir con `name` en `wrangler.jsonc`.
+3. **Build command:** `npx opennextjs-cloudflare build`. **Deploy command:** `npx opennextjs-cloudflare deploy`. Raíz: `/`.
+4. **Build variables** (se incrustan en el build, así que van aquí y no en las variables de ejecución): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` y `NEXT_PUBLIC_SITE_URL=https://focusos.<tu-subdominio>.workers.dev`. Tu subdominio aparece en *Workers & Pages* (panel derecho, *Subdomain*).
+5. La versión de Node la fija `.node-version` (22).
+
+### Desde tu equipo
+
+1. `npx wrangler login`.
+2. Crea `.env.production.local` (no se sube al repo) con `NEXT_PUBLIC_SITE_URL=https://focusos.<tu-subdominio>.workers.dev`. La URL y la clave publicable de Supabase se toman de `.env.local`.
+3. `npm run cf:deploy`. Necesitas una subida estable: el código ocupa unos 9 MB.
+
+### Después del primer deploy
+
+1. **Supabase Auth:** añade `https://focusos.<tu-subdominio>.workers.dev/**` en *Authentication → URL Configuration → Redirect URLs* y, si es la URL principal, ponla como Site URL.
+2. **Secretos (opcionales):** se guardan en Cloudflare (*Settings → Variables & Secrets* del Worker, o `npx wrangler secret put ANTHROPIC_API_KEY`), nunca en el repositorio. Lo mismo para `OPENAI_API_KEY`, `NOTION_CLIENT_ID`, `NOTION_CLIENT_SECRET`, `SUPABASE_SECRET_KEY` e `INTEGRATIONS_ENCRYPTION_KEY`. Se leen en cada petición, así que no hace falta recompilar. Si usas Notion, su Redirect URI debe usar la URL pública.
+
+Notas:
+
+- **Tamaño:** con `minify` (en `wrangler.jsonc`) el Worker ocupa unos 9 MB, 2.6 MiB comprimido. El plan gratuito permite 3 MiB comprimido y el de pago, 10 MiB. `npx wrangler deploy --dry-run` muestra el tamaño exacto.
+- **Conexión lenta:** desde este equipo la subida del código fallaba siempre a los 5 minutos de espera (la subida medida fue de 8 KB/s, probablemente saturada por OneDrive). Por eso se usa el despliegue desde GitHub.
+- **`proxy.ts`:** el soporte de OpenNext para el proxy de Next 16 (runtime de Node) es experimental. Las E2E pasan contra `cf:preview`.
+- **Caché:** de solo lectura, generada en el build. Basta porque los datos de cada usuario se leen en cada petición y no hay ISR. Para revalidar por tiempo o por etiquetas haría falta R2 y una caché de etiquetas en D1.
+- **Windows:** OpenNext recomienda WSL. En este equipo el build y el preview funcionaron en Windows.
+- **E2E contra el preview:** `cf:preview` y luego `E2E_BASE_URL=http://localhost:8787 npx playwright test`. La prueba del asistente se omite allí porque el proveedor de prueba se bloquea en builds de producción.
+
 ### Tipos de la base de datos
 
 `src/lib/supabase/database.types.ts` se genera desde el esquema. Regénéralo tras cada migración con la CLI (`npx supabase gen types typescript --project-id <ref> > src/lib/supabase/database.types.ts`) o con la MCP de Supabase.

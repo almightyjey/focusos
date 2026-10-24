@@ -1,3 +1,4 @@
+import { AssistantBoundary } from "@/components/assistant/assistant-boundary";
 import { SectionHeading } from "@/components/page-header";
 import { TaskItem } from "@/components/tasks/task-item";
 import type { SubjectOption } from "@/components/tasks/task-form-dialog";
@@ -24,16 +25,18 @@ export function TaskSection({
     <section aria-labelledby={id}>
       <SectionHeading id={id} title={title} meta={<span className="tabular">{tasks.length}</span>} />
       <ul className="divide-y divide-rule">
-        {tasks.map((task) => (
-          <TaskItem
-            key={task.id}
-            task={task}
-            subjects={subjects}
-            nowIso={nowIso}
-            timeZone={timeZone}
-            showSubject={showSubject}
-          />
-        ))}
+        <AssistantBoundary>
+          {tasks.map((task) => (
+            <TaskItem
+              key={task.id}
+              task={task}
+              subjects={subjects}
+              nowIso={nowIso}
+              timeZone={timeZone}
+              showSubject={showSubject}
+            />
+          ))}
+        </AssistantBoundary>
       </ul>
     </section>
   );

@@ -13,6 +13,12 @@
       "runtimeArgs": ["run", "dev"],
       "port": 3000,
       "env": { "AI_PROVIDER": "fake" }
+    },
+    {
+      "name": "focusos-cloudflare-preview",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["opennextjs-cloudflare", "preview"],
+      "port": 8787
     }
   ]
 }

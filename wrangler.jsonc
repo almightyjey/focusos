@@ -1,0 +1,28 @@
+// Despliegue en Cloudflare Workers con OpenNext (@opennextjs/cloudflare).
+// Secretos (claves de IA, Notion, clave secreta de Supabase): `wrangler secret put`,
+// nunca en este archivo. Ver README → Despliegue en Cloudflare.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "focusos",
+  "main": ".open-next/worker.js",
+  // Minificar reduce el código de ~14.5 MB a ~9 MB (2.6 MB comprimido): sube
+  // más rápido y deja margen bajo el límite de 3 MB del plan gratuito.
+  "minify": true,
+  "compatibility_date": "2026-10-20",
+  // nodejs_compat: Supabase, node:crypto y el proxy.ts de Next 16 (runtime Node).
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    {
+      // OpenNext lo usa para llamarse a sí mismo; debe coincidir con "name".
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "focusos"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}

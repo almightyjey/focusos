@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Salida de OpenNext y Wrangler (Cloudflare)
+    ".open-next/**",
+    ".wrangler/**",
     // Artefactos de pruebas
     "test-results/**",
     "playwright-report/**",
