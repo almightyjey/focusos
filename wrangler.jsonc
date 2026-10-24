@@ -9,6 +9,8 @@
   // más rápido y deja margen bajo el límite de 3 MB del plan gratuito.
   "minify": true,
   "compatibility_date": "2026-10-20",
+  // Publica en https://focusos.<subdominio>.workers.dev.
+  "workers_dev": true,
   // nodejs_compat: Supabase, node:crypto y el proxy.ts de Next 16 (runtime Node).
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "assets": {

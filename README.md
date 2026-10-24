@@ -205,7 +205,7 @@ Las pruebas de RLS y E2E necesitan dos usuarios confirmados del proyecto de desa
 2. **Correo.** El SMTP de prueba de Supabase solo envía a miembros de tu organización y tiene un límite bajo por hora. Para registrar otras cuentas, configura un SMTP propio en *Authentication → Emails → SMTP*.
 3. **Plantilla de confirmación (opcional).** La plantilla por defecto funciona con `/auth/callback`, pero el enlace debe abrirse en el mismo navegador. Para que funcione en cualquier navegador, cambia el enlace a `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next=/dashboard`.
 4. **OneDrive.** Si el proyecto está dentro de OneDrive, la sincronización puede convertir `.next/` en marcadores de posición de la nube y el build falla con `EPERM: operation not permitted, unlink`. Borra `.next/` y vuelve a compilar, o mejor, excluye la carpeta del proyecto de OneDrive (también evita sincronizar `node_modules`).
-5. **Vercel.** Define `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` y `NEXT_PUBLIC_SITE_URL` en el proyecto. Las variables de las integraciones van sin `NEXT_PUBLIC_` y solo si las usas.
+5. **Vercel.** Ver [Despliegue en Vercel](#despliegue-en-vercel-producción).
 6. **Asistente de IA (opcional).** Añade `ANTHROPIC_API_KEY` (y, si quieres, `ANTHROPIC_MODEL`) o `OPENAI_API_KEY` y `OPENAI_MODEL` en `.env.local` o en Vercel. Cada sugerencia cuesta según la tarifa de tu proveedor. No hay límite por usuario: antes de abrir la app a más personas, conviene añadir uno.
 7. **Notion (opcional).**
    1. En https://www.notion.so/profile/integrations crea una integración **pública**, con permiso de solo lectura de contenido, y como Redirect URI `<NEXT_PUBLIC_SITE_URL>/api/integrations/notion/callback` (por ejemplo `http://localhost:3000/api/integrations/notion/callback`).
@@ -214,7 +214,17 @@ Las pruebas de RLS y E2E necesitan dos usuarios confirmados del proyecto de desa
    4. Genera `INTEGRATIONS_ENCRYPTION_KEY` con `openssl rand -base64 32`. Si la cambias, los usuarios tendrán que reconectar.
    5. Reinicia el servidor y conecta desde Ajustes.
 
-## Despliegue en Cloudflare
+## Despliegue en Vercel (producción)
+
+Producción: **https://focusos-frit.vercel.app**. Vercel compila desde GitHub y publica cada push a `main`. Las URLs de cada deploy (`focusos-frit-<hash>-….vercel.app`) quedan protegidas con el inicio de sesión de Vercel (*Deployment Protection*). La pública es la de producción.
+
+1. **Variables** (*Settings → Environment Variables*): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` y `NEXT_PUBLIC_SITE_URL=https://focusos-frit.vercel.app`. Las `NEXT_PUBLIC_*` se incrustan en el build: si cambias una, vuelve a desplegar (*Deployments → ⋯ → Redeploy*).
+2. **Supabase Auth** (*Authentication → URL Configuration*): Site URL `https://focusos-frit.vercel.app` y, en *Redirect URLs*, `https://focusos-frit.vercel.app/**` (deja también `http://localhost:3000/**` para desarrollo).
+3. **Integraciones (opcionales):** las claves de IA y de Notion, `SUPABASE_SECRET_KEY` e `INTEGRATIONS_ENCRYPTION_KEY` van como variables sin `NEXT_PUBLIC_`. Si usas Notion, su Redirect URI es `https://focusos-frit.vercel.app/api/integrations/notion/callback`.
+
+## Despliegue en Cloudflare (alternativa)
+
+No es el despliegue activo. Desde este equipo no se pudo publicar: la subida estaba en 8 KB/s y el panel no permitió conectar el repositorio. La configuración queda lista y probada en local.
 
 FocusOS se despliega en Cloudflare Workers con [OpenNext](https://opennext.js.org/cloudflare) (`@opennextjs/cloudflare`). La configuración está en `wrangler.jsonc` y `open-next.config.ts`.
 
